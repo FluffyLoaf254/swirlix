@@ -16,12 +16,13 @@ pub struct App {
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_none() {
-            let win_attr = Window::default_attributes().with_title("wgpu winit example");
+            let version = env!("CARGO_PKG_VERSION");
+            let win_attr = Window::default_attributes().with_title(format!("Swirlix {version}"));
             // use Arc.
             let window = Arc::new(
                 event_loop
                     .create_window(win_attr)
-                    .expect("create window err."),
+                    .expect("Could not create the window."),
             );
             self.window = Some(window.clone());
             let wgpu_context = WgpuContext::new(window.clone());

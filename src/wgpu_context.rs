@@ -26,7 +26,7 @@ impl WgpuContext {
                 compatible_surface: Some(&surface),
             })
             .await
-            .expect("Failed to find an appropriate adapter");
+            .expect("Failed to find an appropriate adapter.");
         // Create the logical device and command queue
         let (device, queue) = adapter
             .request_device(
@@ -41,8 +41,8 @@ impl WgpuContext {
                 None,
             )
             .await
-            .expect("Failed to create device");
-            
+            .expect("Failed to create the device.");
+
         let size = window.inner_size();
         // 至少（w = 1, h = 1），否则Wgpu会panic
         let width = size.width.max(1);
@@ -80,7 +80,7 @@ impl WgpuContext {
         let surface_texture = self
             .surface
             .get_current_texture()
-            .expect("Failed to acquire next swap chain texture");
+            .expect("Failed to acquire the next swap chain texture.");
         let texture_view = surface_texture
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -153,4 +153,12 @@ fn create_pipeline(
         multiview: None,
         cache: None,
     })
+}
+
+fn f32_array_to_buffer(data: &[f32]) -> &[u8] {
+    unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) }
+}
+
+fn u32_array_to_buffer(data: &[u32]) -> &[u8] {
+    unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) }
 }

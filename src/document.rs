@@ -12,6 +12,16 @@ struct Document {
 	palette: MaterialPalette,
 }
 
+impl Document {
+	pub fn get_voxel_buffer(&self) -> Vec<u32> {
+		self.root.to_buffer()
+	}
+
+	pub fn get_material_buffer(&self) -> Vec<u8> {
+		self.palette.to_buffer()
+	}
+}
+
 struct Node {
 	material: Rc<RefCell<Material>>,
 	children: [Option<Box<Node>>; 8],
@@ -39,13 +49,14 @@ impl Node {
 
 		value |= pointer << 16;
 		value |= child_mask << 8;
-		value |= self.material.as_ref().borrow().id as u32;
+		value |= self.material.as_ref().borrow().position as u32;
 
 		buffer.push(value);
 
 		for child in &self.children {
 			if let Some(child) = child {
 				buffer = child.append_to_buffer(buffer, child_count);
+				child_count -= 1;
 			}
 		}
 
@@ -59,11 +70,23 @@ struct MaterialPalette {
 }
 
 impl MaterialPalette {
+	pub fn to_buffer(&self) -> Vec<u8> {
+		let mut buffer = Vec::<u8>::new();
+
+		for material in &self.materials {
+			if let Some(upgraded) = material.upgrade() {
+				buffer.extend(upgraded.as_ref().borrow().to_buffer());
+			}
+		}
+
+		buffer
+	}
+
 	pub fn reindex(&mut self) {
 		for index in 0..self.materials.len() {
 			if let Some(material) = self.materials[index].upgrade() {
 				let borrow = &mut material.as_ref().borrow_mut();
-				borrow.id = (index + 1) as u8;
+				borrow.position = index as u8;
 			}
 		}
 	}
@@ -75,7 +98,7 @@ impl MaterialPalette {
 
 		{
 			let borrow = &mut value.as_ref().borrow_mut();
-			borrow.id = (self.materials.len() + 1) as u8;
+			borrow.position = (self.materials.len() + 1) as u8;
 		}
 
 		self.materials.push(Rc::downgrade(value));
@@ -84,10 +107,23 @@ impl MaterialPalette {
 
 #[derive(Clone, Copy)]
 struct Material {
-	id: u8,
+	position: u8,
 	color: [u8; 4],
 	roughness: u8,
 	metallic: u8,
+}
+
+impl Material {
+	pub fn to_buffer(&self) -> [u8; 6] {
+		[
+			self.color[0],
+			self.color[1],
+			self.color[2],
+			self.color[3],
+			self.roughness,
+			self.metallic,
+		]
+	}
 }
 
 impl PartialEq for Material {
