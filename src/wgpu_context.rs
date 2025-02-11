@@ -4,6 +4,7 @@ use wgpu::MemoryHints::Performance;
 use wgpu::ShaderSource;
 use winit::window::Window;
 
+/// The context for rendering to wgpu
 pub struct WgpuContext {
     adapter: wgpu::Adapter,
     window: Arc<Window>,
@@ -15,6 +16,8 @@ pub struct WgpuContext {
 }
 
 impl WgpuContext {
+    /// Create a new context asynchronously (which will be resolved synchronously with pollster).
+    /// Requesting an adapter and device should not take very long, so this is OK.
     pub async fn new_async(window: Arc<Window>) -> WgpuContext {
         let instance = wgpu::Instance::default();
         let surface = instance.create_surface(Arc::clone(&window)).unwrap();
@@ -22,12 +25,12 @@ impl WgpuContext {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(),
                 force_fallback_adapter: false,
-                // Request an adapter which can render to our surface
+                // request an adapter which can render to our surface
                 compatible_surface: Some(&surface),
             })
             .await
             .expect("Failed to find an appropriate adapter.");
-        // Create the logical device and command queue
+        // create the logical device and command queue
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
@@ -44,7 +47,7 @@ impl WgpuContext {
             .expect("Failed to create the device.");
 
         let size = window.inner_size();
-        // 至少（w = 1, h = 1），否则Wgpu会panic
+        // stop wgpu from panicing if these are less than 1
         let width = size.width.max(1);
         let height = size.height.max(1);
 
@@ -52,7 +55,7 @@ impl WgpuContext {
 
         surface.configure(&device, &surface_config);
 
-        let render_pipeline = create_pipeline(&device, surface_config.format);
+        let render_pipeline = WgpuContext::create_render_pipeline(&device, surface_config.format);
 
         WgpuContext {
             surface,
@@ -65,10 +68,58 @@ impl WgpuContext {
         }
     }
 
+    /// Create the render pipeline.
+    pub fn create_render_pipeline(
+        device: &wgpu::Device,
+        swap_chain_format: wgpu::TextureFormat,
+    ) -> wgpu::RenderPipeline {
+        // load the shaders from disk
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("render.wgsl"))),
+        });
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: None,
+            layout: None,
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vertex_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fragment_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(swap_chain_format.into())],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                // strip_index_format: None,
+                // front_face: wgpu::FrontFace::Ccw,
+                // cull_mode: Some(wgpu::Face::Back),
+                // // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                // // or Features::POLYGON_MODE_POINT
+                // polygon_mode: wgpu::PolygonMode::Fill,
+                // // Requires Features::DEPTH_CLIP_CONTROL
+                // unclipped_depth: false,
+                // // Requires Features::CONSERVATIVE_RASTERIZATION
+                // conservative: false,
+                ..Default::default()
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        })
+    }
+
+    /// Create a context, using pollster to keep it synchronous.
     pub fn new(window: Arc<Window>) -> WgpuContext {
         pollster::block_on(WgpuContext::new_async(window))
     }
 
+    /// Update context to match a new size of the window.
     pub fn resize(&mut self, new_size: (u32, u32)) {
         let (width, height) = new_size;
         self.surface_config.width = width.max(1);
@@ -76,6 +127,7 @@ impl WgpuContext {
         self.surface.configure(&self.device, &self.surface_config);
     }
 
+    /// Draw the contents to the wgpu surface.
     pub fn draw(&mut self) {
         let surface_texture = self
             .surface
@@ -108,57 +160,20 @@ impl WgpuContext {
         self.queue.submit(Some(encoder.finish()));
         surface_texture.present();
     }
-}
 
-fn create_pipeline(
-    device: &wgpu::Device,
-    swap_chain_format: wgpu::TextureFormat,
-) -> wgpu::RenderPipeline {
-    // Load the shaders from disk
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("render.wgsl"))),
-    });
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: None,
-        layout: None,
-        vertex: wgpu::VertexState {
-            module: &shader,
-            entry_point: Some("vertex_main"),
-            buffers: &[],
-            compilation_options: Default::default(),
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &shader,
-            entry_point: Some("fragment_main"),
-            compilation_options: Default::default(),
-            targets: &[Some(swap_chain_format.into())],
-        }),
-        primitive: wgpu::PrimitiveState {
-            topology: wgpu::PrimitiveTopology::TriangleList,
-            // strip_index_format: None,
-            // front_face: wgpu::FrontFace::Ccw,
-            // cull_mode: Some(wgpu::Face::Back),
-            // // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-            // // or Features::POLYGON_MODE_POINT
-            // polygon_mode: wgpu::PolygonMode::Fill,
-            // // Requires Features::DEPTH_CLIP_CONTROL
-            // unclipped_depth: false,
-            // // Requires Features::CONSERVATIVE_RASTERIZATION
-            // conservative: false,
-            ..Default::default()
-        },
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState::default(),
-        multiview: None,
-        cache: None,
-    })
-}
+    /// Encodes a f32 array into a buffer of u8 values.
+    ///
+    /// This needs to happen to pass the values to the GPU.
+    /// They'll be mapped to f32 or vectors in the shader.
+    fn f32_array_to_buffer(data: &[f32]) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) }
+    }
 
-fn f32_array_to_buffer(data: &[f32]) -> &[u8] {
-    unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) }
-}
-
-fn u32_array_to_buffer(data: &[u32]) -> &[u8] {
-    unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) }
+    /// Encodes a u32 array into a buffer of u8 values.
+    ///
+    /// This needs to happen to pass the values to the GPU.
+    /// They'll be mapped to u32 or vectors in the shader.
+    fn u32_array_to_buffer(data: &[u32]) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) }
+    }
 }

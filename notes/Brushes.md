@@ -1,0 +1,1 @@
+Brushes will have a "positive" and "negative" action. They will need to apply to the document.
