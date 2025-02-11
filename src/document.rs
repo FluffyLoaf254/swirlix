@@ -208,7 +208,7 @@ impl MaterialPalette {
 		for index in 0..self.materials.len() {
 			if let Some(material) = self.materials[index].upgrade() {
 				let borrow = &mut material.as_ref().borrow_mut();
-				borrow.position = index as u32 - number_pruned;
+				borrow.position = index as u32 - number_pruned + 1;
 				pruned.push(Rc::downgrade(&material));
 			} else {
 				number_pruned += 1;
@@ -221,7 +221,7 @@ impl MaterialPalette {
 		for index in 0..self.materials.len() {
 			if let Some(material) = self.materials[index].upgrade() {
 				let borrow = &mut material.as_ref().borrow_mut();
-				borrow.position = index as u32;
+				borrow.position = index as u32 + 1;
 			}
 		}
 	}
@@ -234,7 +234,7 @@ impl MaterialPalette {
 
 		{
 			let borrow = &mut value.as_ref().borrow_mut();
-			borrow.position = (self.materials.len() + 1) as u32;
+			borrow.position = self.materials.len() as u32 + 1;
 		}
 
 		self.materials.push(Rc::downgrade(value));
@@ -253,7 +253,7 @@ pub struct Material {
 impl Material {
 	pub fn new(color: [f32; 4], roughness: f32, metallic: f32) -> Self {
 		Self {
-			position: 0,
+			position: 1,
 			color: [
 				(color[0] * 255.0).floor() as u32,
 				(color[1] * 255.0).floor() as u32,

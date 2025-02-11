@@ -55,6 +55,13 @@ impl WgpuContext {
 
         surface.configure(&device, &surface_config);
 
+        let voxel_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Voxel Buffer"),
+            size: 65536 * 4,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: true
+        });
+
         let render_pipeline = WgpuContext::create_render_pipeline(&device, surface_config.format);
 
         WgpuContext {
@@ -78,6 +85,7 @@ impl WgpuContext {
             label: None,
             source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("render.wgsl"))),
         });
+
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: None,
             layout: None,

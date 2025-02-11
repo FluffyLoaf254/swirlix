@@ -51,13 +51,13 @@ impl Draw for RoundBrush {
 		let brush_size = size * 0.01;
 		document.subdivide(
 			Material::new(color, roughness, metallic),
-			&|size: f32, x: f32, y: f32, z: f32|
-			x + size / 2.0 < mouse_x + brush_size
-			&& x - size / 2.0 > mouse_x - brush_size
-			&& y + size / 2.0 < mouse_y + brush_size
-			&& y - size / 2.0 > mouse_y - brush_size
-			&& z + size / 2.0 < brush_size
-			&& z - size / 2.0 > brush_size
+			&|size: f32, x: f32, y: f32, z: f32| {
+				let half_size = size / 2.0;
+				let far_distance = (((x - mouse_x).abs() + half_size).powf(2.0) + ((y - mouse_y).abs() + half_size).powf(2.0) + ((z - 0.0).abs() + half_size).powf(2.0)).sqrt();
+				let radius = brush_size / 2.0;
+
+				far_distance <= radius
+			}
 		);
 	}
 
