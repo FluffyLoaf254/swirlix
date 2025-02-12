@@ -1395,6 +1395,13 @@ dependencies = [
 name = "swirlix"
 version = "0.1.0"
 dependencies = [
+ "swirlix_lib",
+]
+
+[[package]]
+name = "swirlix_lib"
+version = "0.1.0"
+dependencies = [
  "pollster",
  "wgpu",
  "winit",

@@ -1,26 +1,38 @@
+use crate::editor::Editor;
+use crate::renderer::Renderer;
+
 use std::sync::Arc;
 
+use winit::error::EventLoopError;
+use winit::event_loop::{EventLoop, ControlFlow, ActiveEventLoop};
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalPosition;
 use winit::event::{MouseButton, WindowEvent};
-use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
 
-use crate::editor::Editor;
-use crate::wgpu_context::WgpuContext;
-
-/// The application of winit for displaying windows.
+/// The main application class.
+///
+/// A winit application. Manages the window and owns all other resources.
 #[derive(Default)]
 pub struct App {
     window: Option<Arc<Window>>,
-    context: Option<WgpuContext>,
+    context: Option<Renderer>,
     cursor_position: PhysicalPosition<f64>,
     editor: Editor,
-    has_drawn: bool,
+}
+
+impl App {
+    /// Run the main event loop.
+    pub fn run() -> Result<(), EventLoopError> {
+        let event_loop = EventLoop::new().unwrap();
+        event_loop.set_control_flow(ControlFlow::Poll);
+        let mut app = App::default();
+        event_loop.run_app(&mut app)
+    }
 }
 
 impl ApplicationHandler for App {
-    /// Application has been resumed or started.
+    /// Start or resume the application.
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_none() {
             let version = env!("CARGO_PKG_VERSION");
@@ -32,12 +44,12 @@ impl ApplicationHandler for App {
                     .expect("Could not create the window."),
             );
             self.window = Some(window.clone());
-            let context = WgpuContext::new(window.clone());
+            let context = Renderer::new(window.clone());
             self.context = Some(context);
         }
     }
 
-    /// Handle events.
+    /// Handle window events.
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -59,8 +71,9 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
-                if let Some(context) = self.context.as_mut() {
+                if let (Some(context), Some(window)) = (self.context.as_mut(), self.window.as_ref()) {
                     context.draw();
+                    window.request_redraw();
                 }
             }
             WindowEvent::CursorMoved {
@@ -74,19 +87,16 @@ impl ApplicationHandler for App {
                 state: _,
                 button,
             } => {
-                if self.has_drawn {
-                    return;
-                }
+                // left click = add
                 if button == MouseButton::Left {
                     let size = self.window.as_ref().unwrap().inner_size();
-                    // remap x/y values from pixel to normalized device coordinates for now...
-                    self.editor.add(((self.cursor_position.x / size.width as f64) * 2.0 - 1.0) as f32, ((self.cursor_position.y / size.height as f64) * 2.0 - 1.0) as f32);
-                    self.has_drawn = true;
+                    // remap x/y values from pixel to 0-1 for now...
+                    self.editor.add((self.cursor_position.x / size.width as f64) as f32, (self.cursor_position.y / size.height as f64) as f32);
+                    self.context.as_mut().unwrap().set_voxel_buffer(self.editor.get_voxel_buffer());
                 }
+                // right click = remove
                 if button == MouseButton::Right {
-                    let size = self.window.as_ref().unwrap().inner_size();
-                    // remap x/y values from pixel to normalized device coordinates for now...
-                    self.editor.remove(((self.cursor_position.x / size.width as f64) * 2.0 - 1.0) as f32, ((self.cursor_position.y / size.height as f64) * 2.0 - 1.0) as f32);
+                    todo!();
                 }
             }
             _ => (),
