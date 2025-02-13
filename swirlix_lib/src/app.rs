@@ -86,7 +86,7 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput {
                 device_id: _,
                 event,
-                is_synthetic
+                is_synthetic: _,
             } => {
                 if event.physical_key == KeyCode::KeyR {
                     self.editor.set_brush(0);

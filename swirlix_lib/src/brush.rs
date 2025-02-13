@@ -142,7 +142,17 @@ impl Draw for RoundBrushTip {
 
 	/// Sculpt by removing geometry.
 	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32, material: Material) {
-		todo!()
+		let brush_position = Point {
+			x,
+			y,
+			z: 0.5,
+		};
+		let brush_size = size;
+		sculpt.unsubdivide(
+			material,
+			RoundBrushTip::filler(brush_size, brush_position),
+			RoundBrushTip::container(brush_size, brush_position)
+		);
 	}
 }
 
@@ -228,7 +238,17 @@ impl Draw for SquareBrushTip {
 
 	/// Sculpt by removing geometry.
 	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32, material: Material) {
-		todo!()
+		let brush_position = Point {
+			x,
+			y,
+			z: 0.5,
+		};
+		let brush_size = size;
+		sculpt.unsubdivide(
+			material,
+			SquareBrushTip::filler(brush_size, brush_position),
+			SquareBrushTip::container(brush_size, brush_position)
+		);
 	}
 }
 
