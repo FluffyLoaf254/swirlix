@@ -18,6 +18,7 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    let z = 0.5;
     var color = vec4<f32>(input.uv.x, input.uv.y, 1.0, 1.0);
     var center = vec3<f32>(0.5, 0.5, 0.5);
     var size = 1.0;
@@ -42,14 +43,22 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let leaves = (current & 255u);
 
         var candidates = 0u;
-        if ((input.uv.x <= center.x) && (input.uv.y <= center.y)) {
-            candidates |= 17u; // lfb, lft
-        } else if ((input.uv.x > center.x) && (input.uv.y <= center.y)) {
-            candidates |= 34u; // rfb, rft
-        } else if ((input.uv.x <= center.x) && (input.uv.y > center.y)) {
-            candidates |= 68u; // lbb, lbt
-        } else if ((input.uv.x > center.x) && (input.uv.y > center.y)) {
-            candidates |= 136u; // rbb, rbt 
+        if ((input.uv.x - center.x <= 0.0) && (input.uv.y - center.y <= 0.0) && (z - center.z <= 0.0)) {
+            candidates |= 1u; // lfb
+        } else if ((input.uv.x - center.x >= 0.0) && (input.uv.y - center.y <= 0.0) && (z - center.z <= 0.0)) {
+            candidates |= 2u; // rfb
+        } else if ((input.uv.x - center.x <= 0.0) && (input.uv.y - center.y >= 0.0) && (z - center.z <= 0.0)) {
+            candidates |= 4u; // lbb
+        } else if ((input.uv.x - center.x >= 0.0) && (input.uv.y - center.y >= 0.0) && (z - center.z <= 0.0)) {
+            candidates |= 8u; // rbb
+        } else if ((input.uv.x - center.x <= 0.0) && (input.uv.y - center.y <= 0.0) && (z - center.z >= 0.0)) {
+            candidates |= 16u; // lft
+        } else if ((input.uv.x - center.x >= 0.0) && (input.uv.y - center.y <= 0.0) && (z - center.z >= 0.0)) {
+            candidates |= 32u; // rft
+        } else if ((input.uv.x - center.x <= 0.0) && (input.uv.y - center.y >= 0.0) && (z - center.z >= 0.0)) {
+            candidates |= 64u; // lbt
+        } else if ((input.uv.x - center.x >= 0.0) && (input.uv.y - center.y >= 0.0) && (z - center.z >= 0.0)) {
+            candidates |= 128u; // rbt 
         }
 
         let matches = (children & candidates);
@@ -57,18 +66,38 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
             break;
         }
 
-        if (((matches & 170u) != 0) && ((matches & 204u) != 0)) {
-            center.x += quarter_size;
-            center.y += quarter_size;
-        } else if (((matches & 170u) == 0) && ((matches & 204u) != 0)) {
-            center.x -= quarter_size;
-            center.y += quarter_size;
-        } else if (((matches & 170u) != 0) && ((matches & 204u) == 0)) {
-            center.x += quarter_size;
-            center.y -= quarter_size; 
-        } else if (((matches & 170u) == 0) && ((matches & 204u) == 0)) {
+        if ((matches & 1u) != 0) {
             center.x -= quarter_size;
             center.y -= quarter_size;
+            center.z -= quarter_size;
+        } else if ((matches & 2u) != 0) {
+            center.x += quarter_size;
+            center.y -= quarter_size;
+            center.z -= quarter_size;
+        } else if ((matches & 4u) != 0) {
+            center.x -= quarter_size;
+            center.y += quarter_size;
+            center.z -= quarter_size; 
+        } else if ((matches & 8u) != 0) {
+            center.x += quarter_size;
+            center.y += quarter_size;
+            center.z -= quarter_size;
+        } else if ((matches & 16u) != 0) {
+            center.x -= quarter_size;
+            center.y -= quarter_size;
+            center.z += quarter_size;
+        } else if ((matches & 32u) != 0) {
+            center.x += quarter_size;
+            center.y -= quarter_size;
+            center.z += quarter_size;
+        } else if ((matches & 64u) != 0) {
+            center.x -= quarter_size;
+            center.y += quarter_size;
+            center.z += quarter_size; 
+        } else if ((matches & 128u) != 0) {
+            center.x += quarter_size;
+            center.y += quarter_size;
+            center.z += quarter_size;
         }
 
         var child_offset = 0u;
