@@ -39,10 +39,10 @@ impl Sculpt {
 	}
 
 	/// Subdivides space to fill the sculpt.
-	pub fn subdivide(&mut self, fill: Material, is_filled: Box<dyn Fn(f32, Point) -> bool>) {
+	pub fn subdivide(&mut self, fill: Material, is_filled: Box<dyn Fn(f32, Point) -> bool>, is_contained: Box<dyn Fn(f32, Point) -> bool>) {
 		self.palette.borrow_mut().push(fill);
 		let material = self.palette.borrow().get(fill);
-		self.root.subdivide(material.clone(), &is_filled, self.min_leaf_size);
+		self.root.subdivide(material.clone(), &is_filled, &is_contained, self.min_leaf_size);
 		self.root.set_child_count();
 	}
 }
@@ -73,8 +73,8 @@ impl SculptNode {
 	/// Handles the sparse voxel octree modifications, recursively.
 	///
 	/// Returns whether or not the result is a leaf.
-	fn subdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32) -> bool {
-		if self.size <= min_leaf_size {
+	fn subdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32) -> bool {
+		if self.size <= min_leaf_size || is_contained(self.size, self.center) {
 			self.children = [None, None, None, None, None, None, None, None];
 			return true;
 		}
@@ -159,7 +159,7 @@ impl SculptNode {
 
 		for child in &mut self.children {
 			if let Some(ref mut to_subdivide) = child {
-				let leaf = to_subdivide.subdivide(fill.clone(), &is_filled, min_leaf_size);
+				let leaf = to_subdivide.subdivide(fill.clone(), &is_filled, &is_contained, min_leaf_size);
 				all_leaves = all_leaves && leaf;
 			} else {
 				all_leaves = false;
@@ -354,7 +354,7 @@ mod tests {
     		metallic: 0,
     	};
 
-    	sculpt.subdivide(material, RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 }));
+    	sculpt.subdivide(material, RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 }), RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 }));
 
     	assert_eq!(sculpt.root.children.iter().filter(|child| child.is_some()).count(), 8);
     }

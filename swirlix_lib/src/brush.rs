@@ -84,6 +84,41 @@ impl RoundBrushTip {
 				dist_squared -= (brush_position.z - point_2.z).powi(2);
 			}
 
+			dist_squared >= 0.0
+		})
+	}
+
+	/// Function for determining interior leaf nodes for a sphere.
+	pub fn container(brush_size: f32, brush_position: Point) -> Box<dyn Fn (f32, Point) -> bool> {
+		Box::new(move |size: f32, center: Point| {
+			let half_size = size / 2.0;
+			let point_1 = Point {
+				x: center.x - half_size,
+				y: center.y - half_size,
+				z: center.z - half_size,
+			};
+			let point_2 = Point {
+				x: center.x + half_size,
+				y: center.y + half_size,
+				z: center.z + half_size,
+			};
+			let mut dist_squared = brush_size.powi(2);
+			if brush_position.x > point_1.x {
+				dist_squared -= (brush_position.x - point_1.x).powi(2);
+			} else if brush_position.x < point_2.x {
+				dist_squared -= (brush_position.x - point_2.x).powi(2);
+			}
+			if brush_position.y > point_1.y {
+				dist_squared -= (brush_position.y - point_1.y).powi(2);
+			} else if brush_position.y < point_2.y {
+				dist_squared -= (brush_position.y - point_2.y).powi(2);
+			}
+			if brush_position.z > point_1.z {
+				dist_squared -= (brush_position.z - point_1.z).powi(2);
+			} else if brush_position.z < point_2.z {
+				dist_squared -= (brush_position.z - point_2.z).powi(2);
+			}
+
 			dist_squared > 0.0
 		})
 	}
@@ -98,7 +133,11 @@ impl Draw for RoundBrushTip {
 			z: 0.5,
 		};
 		let brush_size = size;
-		sculpt.subdivide(material, RoundBrushTip::filler(brush_size, brush_position));
+		sculpt.subdivide(
+			material,
+			RoundBrushTip::filler(brush_size, brush_position),
+			RoundBrushTip::container(brush_size, brush_position)
+		);
 	}
 
 	/// Sculpt by removing geometry.
