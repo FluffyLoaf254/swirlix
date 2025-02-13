@@ -57,31 +57,31 @@ impl RoundBrushTip {
 	pub fn filler(brush_size: f32, brush_position: Point) -> Box<dyn Fn (f32, Point) -> bool> {
 		Box::new(move |size: f32, center: Point| {
 			let half_size = size / 2.0;
-			let point_1 = Point {
+			let low_point = Point {
 				x: center.x - half_size,
 				y: center.y - half_size,
 				z: center.z - half_size,
 			};
-			let point_2 = Point {
+			let high_point = Point {
 				x: center.x + half_size,
 				y: center.y + half_size,
 				z: center.z + half_size,
 			};
 			let mut dist_squared = brush_size.powi(2);
-			if brush_position.x < point_1.x {
-				dist_squared -= (brush_position.x - point_1.x).powi(2);
-			} else if brush_position.x > point_2.x {
-				dist_squared -= (brush_position.x - point_2.x).powi(2);
+			if brush_position.x < low_point.x {
+				dist_squared -= (brush_position.x - low_point.x).powi(2);
+			} else if brush_position.x > high_point.x {
+				dist_squared -= (brush_position.x - high_point.x).powi(2);
 			}
-			if brush_position.y < point_1.y {
-				dist_squared -= (brush_position.y - point_1.y).powi(2);
-			} else if brush_position.y > point_2.y {
-				dist_squared -= (brush_position.y - point_2.y).powi(2);
+			if brush_position.y < low_point.y {
+				dist_squared -= (brush_position.y - low_point.y).powi(2);
+			} else if brush_position.y > high_point.y {
+				dist_squared -= (brush_position.y - high_point.y).powi(2);
 			}
-			if brush_position.z < point_1.z {
-				dist_squared -= (brush_position.z - point_1.z).powi(2);
-			} else if brush_position.z > point_2.z {
-				dist_squared -= (brush_position.z - point_2.z).powi(2);
+			if brush_position.z < low_point.z {
+				dist_squared -= (brush_position.z - low_point.z).powi(2);
+			} else if brush_position.z > high_point.z {
+				dist_squared -= (brush_position.z - high_point.z).powi(2);
 			}
 
 			dist_squared >= 0.0
@@ -92,31 +92,31 @@ impl RoundBrushTip {
 	pub fn container(brush_size: f32, brush_position: Point) -> Box<dyn Fn (f32, Point) -> bool> {
 		Box::new(move |size: f32, center: Point| {
 			let half_size = size / 2.0;
-			let point_1 = Point {
+			let low_point = Point {
 				x: center.x - half_size,
 				y: center.y - half_size,
 				z: center.z - half_size,
 			};
-			let point_2 = Point {
+			let high_point = Point {
 				x: center.x + half_size,
 				y: center.y + half_size,
 				z: center.z + half_size,
 			};
 			let mut dist_squared = brush_size.powi(2);
-			if brush_position.x > point_1.x {
-				dist_squared -= (brush_position.x - point_1.x).powi(2);
-			} else if brush_position.x < point_2.x {
-				dist_squared -= (brush_position.x - point_2.x).powi(2);
+			if brush_position.x > center.x {
+				dist_squared -= (brush_position.x - low_point.x).powi(2);
+			} else {
+				dist_squared -= (brush_position.x - high_point.x).powi(2);
 			}
-			if brush_position.y > point_1.y {
-				dist_squared -= (brush_position.y - point_1.y).powi(2);
-			} else if brush_position.y < point_2.y {
-				dist_squared -= (brush_position.y - point_2.y).powi(2);
+			if brush_position.y > center.y {
+				dist_squared -= (brush_position.y - low_point.y).powi(2);
+			} else {
+				dist_squared -= (brush_position.y - high_point.y).powi(2);
 			}
-			if brush_position.z > point_1.z {
-				dist_squared -= (brush_position.z - point_1.z).powi(2);
-			} else if brush_position.z < point_2.z {
-				dist_squared -= (brush_position.z - point_2.z).powi(2);
+			if brush_position.z > center.z {
+				dist_squared -= (brush_position.z - low_point.z).powi(2);
+			} else {
+				dist_squared -= (brush_position.z - high_point.z).powi(2);
 			}
 
 			dist_squared > 0.0
@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn round_brush_filler_contains_small_offcenter_point() {
     	let filler = RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(filler(0.1, Point { x: 0.75, y: 0.75, z: 0.75 }))
+    	assert!(filler(0.05, Point { x: 0.75, y: 0.75, z: 0.75 }))
     }
 
     #[test]
@@ -184,5 +184,41 @@ mod tests {
     fn round_brush_filler_does_not_contains_far_off_point() {
     	let filler = RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
     	assert!(!filler(0.25, Point { x: 2.0, y: 2.0, z: 2.0 }))
+    }
+
+    #[test]
+    fn round_brush_container_contains_small_center_point() {
+    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
+    	assert!(container(0.25, Point { x: 0.5, y: 0.5, z: 0.5 }))
+    }
+
+    #[test]
+    fn round_brush_container_does_not_contain_large_center_point() {
+    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
+    	assert!(!container(1.0, Point { x: 0.5, y: 0.5, z: 0.5 }))
+    }
+
+    #[test]
+    fn round_brush_container_contains_small_offcenter_point() {
+    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
+    	assert!(container(0.05, Point { x: 0.75, y: 0.75, z: 0.75 }))
+    }
+
+    #[test]
+    fn round_brush_container_does_not_contain_large_offcenter_point() {
+    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
+    	assert!(!container(1.0, Point { x: 0.75, y: 0.75, z: 0.75 }))
+    }
+
+    #[test]
+    fn round_brush_container_does_not_contain_large_far_off_point() {
+    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
+    	assert!(!container(4.0, Point { x: 2.0, y: 2.0, z: 2.0 }))
+    }
+
+    #[test]
+    fn round_brush_container_does_not_contains_far_off_point() {
+    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
+    	assert!(!container(0.25, Point { x: 2.0, y: 2.0, z: 2.0 }))
     }
 }
