@@ -29,7 +29,6 @@ impl Editor {
 
 	/// Draw additively on the sculpt.
 	pub fn add(&mut self, x: f32, y: f32) {
-		println!("{x} {y}");
 		self.brush.add(&mut self.sculpt, x, y);
 	}
 

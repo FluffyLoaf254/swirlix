@@ -20,71 +20,71 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     var color = vec4<f32>(input.uv.x, input.uv.y, 1.0, 1.0);
     var center = vec3<f32>(0.5, 0.5, 0.5);
-    var size = 0.5;
+    var size = 1.0;
     var pointer = 0u;
+    var current = voxels[pointer];
+    var iteration = 0u;
 
-    var found = false;
+    if (current == 0u) {
+        return color;
+    }
 
-    while (!found) {
-        let current = voxels[pointer];
+    loop {
+        if (current == 0u || iteration > 12u) {
+            color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
+            break;
+        }
+        let half_size = size / 2.0;
+        let quarter_size = size / 4.0;
+
         pointer = (current >> 16);
         let children = ((current >> 8) & 255u);
         let leaves = (current & 255u);
+
         var candidates = 0u;
-        if (input.uv.x < center.x && input.uv.y < center.y) {
-            candidates |= 5u; // lfb, lft
-        } else if (input.uv.x > center.x && input.uv.y < center.y) {
+        if ((input.uv.x <= center.x) && (input.uv.y <= center.y)) {
+            candidates |= 17u; // lfb, lft
+        } else if ((input.uv.x > center.x) && (input.uv.y <= center.y)) {
             candidates |= 34u; // rfb, rft
-        } else if (input.uv.x < center.x && input.uv.y > center.y) {
+        } else if ((input.uv.x <= center.x) && (input.uv.y > center.y)) {
             candidates |= 68u; // lbb, lbt
-        } else if (input.uv.x > center.x && input.uv.y > center.y) {
+        } else if ((input.uv.x > center.x) && (input.uv.y > center.y)) {
             candidates |= 136u; // rbb, rbt 
         }
 
-        let matches = children & candidates;
-        var child = 0u;
+        let matches = (children & candidates);
         if (matches == 0u) {
-            found = true;
-        } else {
-            size /= 2.0;
-            if ((matches & 170u) != 0 && (matches & 204u) != 0) {
-                center.x += size;
-                center.y += size;
-                center.z += size;
-                child = 128u;
-            } else if ((matches & 170u) != 0 && (matches & 204u) == 0) {
-                center.x += size;
-                center.y -= size;
-                center.z += size;
-                child = 32u;
-            } else if ((matches & 170u) == 0 && (matches & 204u) != 0) {
-                center.x -= size;
-                center.y += size;
-                center.z += size;
-                child = 64u;
-            } else if ((matches & 170u) == 0 && (matches & 204u) != 0) {
-                center.x -= size;
-                center.y -= size;
-                center.z += size;
-                child = 16u;
-            }
-
-            var current = 1u;
-            var children_left = children;
-            var child_count = 0u;
-            while (current != child) {
-                child_count += (children_left & 1u);
-                children_left = (children_left >> 1);
-                current = (current << 1);
-            }
-
-            pointer += child_count;
-
-            if ((child & leaves) != 0u) {
-                color = vec4<f32>(1.0, 0.0, 0.0, 1.0);
-                found = true;
-            }
+            break;
         }
+
+        if (((matches & 170u) != 0) && ((matches & 204u) != 0)) {
+            center.x += quarter_size;
+            center.y += quarter_size;
+        } else if (((matches & 170u) == 0) && ((matches & 204u) != 0)) {
+            center.x -= quarter_size;
+            center.y += quarter_size;
+        } else if (((matches & 170u) != 0) && ((matches & 204u) == 0)) {
+            center.x += quarter_size;
+            center.y -= quarter_size; 
+        } else if (((matches & 170u) == 0) && ((matches & 204u) == 0)) {
+            center.x -= quarter_size;
+            center.y -= quarter_size;
+        }
+
+        var child_offset = 0u;
+        var looking_for_byte = 1u;
+        var bits_left = children;
+        while ((looking_for_byte & matches) == 0) {
+            child_offset += (bits_left & 1u);
+            bits_left = (bits_left >> 1);
+            looking_for_byte = (looking_for_byte << 1);
+        }
+
+        pointer += child_offset;
+        size = half_size;
+
+        current = voxels[pointer];
+        iteration++;
     }
 
     return color;

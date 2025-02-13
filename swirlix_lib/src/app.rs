@@ -96,7 +96,10 @@ impl ApplicationHandler for App {
                 }
                 // right click = remove
                 if button == MouseButton::Right {
-                    todo!();
+                    let size = self.window.as_ref().unwrap().inner_size();
+                    // remap x/y values from pixel to 0-1 for now...
+                    self.editor.remove((self.cursor_position.x / size.width as f64) as f32, (self.cursor_position.y / size.height as f64) as f32);
+                    self.context.as_mut().unwrap().set_voxel_buffer(self.editor.get_voxel_buffer());
                 }
             }
             _ => (),

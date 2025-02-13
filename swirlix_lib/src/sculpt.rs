@@ -12,6 +12,7 @@ use std::rc::{Weak, Rc};
 pub struct Sculpt {
 	root: SculptNode,
 	palette: Rc<RefCell<SculptPalette>>,
+	min_leaf_size: f32,
 }
 
 impl Sculpt {
@@ -23,6 +24,7 @@ impl Sculpt {
 		Self {
 			root: SculptNode::new(Rc::downgrade(&palette_ref), material, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 }),
 			palette: palette_ref,
+			min_leaf_size: 0.05,
 		}
 	}
 
@@ -37,10 +39,11 @@ impl Sculpt {
 	}
 
 	/// Subdivides space to fill the sculpt.
-	pub fn subdivide(&mut self, fill: Material, is_filled: &dyn Fn(f32, Point) -> bool) {
+	pub fn subdivide(&mut self, fill: Material, is_filled: Box<dyn Fn(f32, Point) -> bool>) {
 		self.palette.borrow_mut().push(fill);
 		let material = self.palette.borrow().get(fill);
-		self.root.subdivide(material.clone(), is_filled);
+		self.root.subdivide(material.clone(), &is_filled, self.min_leaf_size);
+		self.root.set_child_count();
 	}
 }
 
@@ -51,6 +54,7 @@ struct SculptNode {
 	children: [Option<Box<SculptNode>>; 8],
 	center: Point,
 	size: f32,
+	child_count: u32,
 }
 
 impl SculptNode {
@@ -62,12 +66,15 @@ impl SculptNode {
 			children: [None, None, None, None, None, None, None, None],
 			size,
 			center,
+			child_count: 0,
 		}
 	}
 
 	/// Handles the sparse voxel octree modifications, recursively.
-	fn subdivide(&mut self, fill: Rc<Material>, is_filled: &dyn Fn(f32, Point) -> bool) -> bool {
-		if self.size < 0.1 {
+	///
+	/// Returns whether or not the result is a leaf.
+	fn subdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32) -> bool {
+		if self.size <= min_leaf_size {
 			self.children = [None, None, None, None, None, None, None, None];
 			return true;
 		}
@@ -123,63 +130,36 @@ impl SculptNode {
 			z: self.center.z + quarter_size,
 		};
 
-		let lfb_child = if is_filled(half_size, lfb) {
-			Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lfb)))
-		} else {
-			None
+		if is_filled(half_size, lfb) && !self.children[0].is_some() {
+			self.children[0] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lfb)));
 		};
-		let rfb_child = if is_filled(half_size, rfb) {
-			Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rfb)))
-		} else {
-			None
+		if is_filled(half_size, rfb) && !self.children[1].is_some() {
+			self.children[1] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rfb)));
 		};
-		let lbb_child = if is_filled(half_size, lbb) {
-			Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lbb)))
-		} else {
-			None
+		if is_filled(half_size, lbb) && !self.children[2].is_some() {
+			self.children[2] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lbb)));
 		};
-		let rbb_child = if is_filled(half_size, rbb) {
-			Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rbb)))
-		} else {
-			None
+		if is_filled(half_size, rbb) && !self.children[3].is_some() {
+			self.children[3] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rbb)));
 		};
-		let lft_child = if is_filled(half_size, lft) {
-			Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lft)))
-		} else {
-			None
+		if is_filled(half_size, lft) && !self.children[4].is_some() {
+			self.children[4] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lft)));
 		};
-		let rft_child = if is_filled(half_size, rft) {
-			Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rft)))
-		} else {
-			None
+		if is_filled(half_size, rft) && !self.children[5].is_some() {
+			self.children[5] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rft)));
 		};
-		let lbt_child = if is_filled(half_size, lbt) {
-			Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lbt)))
-		} else {
-			None
+		if is_filled(half_size, lbt) && !self.children[6].is_some() {
+			self.children[6] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lbt)));
 		};
-		let rbt_child = if is_filled(half_size, rbt) {
-			Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rbt)))
-		} else {
-			None
+		if is_filled(half_size, rbt) && !self.children[7].is_some() {
+			self.children[7] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rbt)));
 		};
-
-		self.children = [
-			lfb_child, 
-			rfb_child, 
-			lbb_child, 
-			rbb_child, 
-			lft_child, 
-			rft_child, 
-			lbt_child, 
-			rbt_child
-		];
 
 		let mut all_leaves = true;
 
 		for child in &mut self.children {
 			if let Some(ref mut to_subdivide) = child {
-				let leaf = to_subdivide.subdivide(fill.clone(), is_filled);
+				let leaf = to_subdivide.subdivide(fill.clone(), &is_filled, min_leaf_size);
 				all_leaves = all_leaves && leaf;
 			} else {
 				all_leaves = false;
@@ -193,39 +173,65 @@ impl SculptNode {
 		return all_leaves;
 	}
 
+	fn set_child_count(&mut self) {
+		self.child_count = 0;
+
+		for index in 0..8 {
+			if let Some(child) = &mut self.children[index as usize] {
+				self.child_count += 1;
+				child.set_child_count();
+				self.child_count += child.child_count;
+			}
+		}
+	}
+
 	/// Convert the node and its children to the buffer format for the GPU.
 	fn to_buffer(&self) -> Vec<u32> {
 		let mut buffer = Vec::<u32>::new();
 
+		buffer.push(self.to_u32(1));
+
 		self.append_to_buffer(&mut buffer, 1);
+
+		// self.print_buffer(&buffer);
 
 		buffer
 	}
 
-	/// Handle the actual, recursive logic for generating the buffer.
-	fn append_to_buffer(&self, buffer: &mut Vec<u32>, mut counter: u32) -> u32 {
-		let pointer = counter;
-		let mut children = Vec::<u32>::new();
+	/// Print the buffer for debug purposes - PLEASE IMPLEMENT ACTUAL DEBUG PRINTING!!!
+	fn print_buffer(&self, buffer: &Vec<u32>) {
+		for index in 0..buffer.len() {
+			let pointer = buffer[index] >> 16;
+			let child_mask = ((buffer[index] >> 8) & 255) as u8;
+			let leaf_mask = (buffer[index] & 255) as u8;
+
+			println!("{index}: pointer: {pointer}, child: {child_mask:08b}, leaf: {leaf_mask:08b}");
+		}
+	}
+
+	/// Convert a node to an integer to send to the GPU.
+	fn to_u32(&self, pointer: u32) -> u32 {
 		let mut value = 0u32;
 
 		let mut child_mask = 0;
 		let mut leaf_mask = 0;
-		let child_count = self.children.iter().fold(0, |carry, child| if child.is_some() { carry + 1 } else { carry });
-		counter += child_count;
+		let mut child_count = 0;
 
 		for index in 0..8 {
 			if let Some(child) = &self.children[index as usize] {
+				let bit = 1u32 << index;
 				if !child.children.iter().any(|s| s.is_some()) {
-					leaf_mask |= 2u32.pow(index);
+					leaf_mask |= bit;
 				}
-				child_mask |= 2u32.pow(index);
-				counter += child.append_to_buffer(&mut children, counter);
+				child_mask |= bit;
+				child_count += 1;
 			}
 		}
 
-		if child_count == 0 && pointer > 1 {
+		if child_count == 0 {
 			// a leaf node
-			value |= self.palette.upgrade().unwrap().borrow().index(*self.material);
+			value = 0;
+			// value |= self.palette.upgrade().unwrap().borrow().index(*self.material);
 		} else {
 			// an interior node
 			value |= pointer << 16;
@@ -233,11 +239,32 @@ impl SculptNode {
 			value |= leaf_mask;
 		}
 
-		println!("pointer: {pointer}, child: {child_mask}, leaf: {leaf_mask}, count: {child_count}");
-		buffer.push(value);
-		buffer.extend(children);
+		value
+	}
 
-		child_count
+	/// Handle the actual, recursive logic for generating the buffer.
+	fn append_to_buffer(&self, buffer: &mut Vec<u32>, mut pointer: u32) {
+		for index in 0..8 {
+			if let Some(child) = &self.children[index] {
+				pointer += 1;
+			}
+		}
+
+		let mut first_child_pointer = pointer;
+		for index in 0..8 {
+			if let Some(child) = &self.children[index] {
+				buffer.push(child.to_u32(first_child_pointer));
+				first_child_pointer += child.child_count;
+			}
+		}
+
+		let mut second_child_pointer = pointer;
+		for index in 0..8 {
+			if let Some(child) = &self.children[index] {
+				child.append_to_buffer(buffer, second_child_pointer);
+				second_child_pointer += child.child_count;
+			}
+		}
 	}
 }
 
@@ -309,4 +336,429 @@ impl SculptPalette {
 
 		self.materials.push(Rc::new(value));
 	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+    use crate::brush::RoundBrushTip;
+
+    #[test]
+    fn subdivide_creates_all_root_children_with_sphere_brush_at_center() {
+    	let mut sculpt = Sculpt::new();
+
+    	let material = Material {
+    		color: [255, 0, 0, 255],
+    		roughness: 128,
+    		metallic: 0,
+    	};
+
+    	sculpt.subdivide(material, RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 }));
+
+    	assert_eq!(sculpt.root.children.iter().filter(|child| child.is_some()).count(), 8);
+    }
+
+    #[test]
+    fn simple_sculpt_node_generates_correct_buffer() {
+    	let palette = SculptPalette::new();
+		let material = palette.first();
+		let palette_ref = Rc::new(RefCell::new(palette));
+
+		let mut sculpt_node = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+		sculpt_node.children = [
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.25, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+		];
+
+		let expected = vec![
+			(1 << 16) + (0b11111111 << 8) + (0b11111111),
+
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+		];
+
+    	assert_eq!(sculpt_node.to_buffer(), expected);
+    }
+
+    #[test]
+    fn simple_sculpt_node_missing_children_generates_correct_buffer() {
+    	let palette = SculptPalette::new();
+		let material = palette.first();
+		let palette_ref = Rc::new(RefCell::new(palette));
+
+		let mut sculpt_node = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+		sculpt_node.children = [
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.25 }))),
+			None,
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
+			None,
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
+			None,
+			None,
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+		];
+
+		let expected = vec![
+			(1 << 16) + (0b10010101 << 8) + (0b10010101),
+
+			0,
+			0,
+			0,
+			0,
+		];
+
+    	assert_eq!(sculpt_node.to_buffer(), expected);
+    }
+
+    #[test]
+    fn simple_nested_sculpt_node_generates_correct_buffer() {
+    	let palette = SculptPalette::new();
+		let material = palette.first();
+		let palette_ref = Rc::new(RefCell::new(palette));
+
+		let mut sculpt_node = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+
+		let mut sculpt_node_child_lfb = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.25 });
+		sculpt_node_child_lfb.children = [
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.375, z: 0.375 }))),
+		];
+
+		sculpt_node.children = [
+			Some(Box::new(sculpt_node_child_lfb)),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.25, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+		];
+
+		let expected = vec![
+			(1 << 16) + (0b11111111 << 8) + (0b11111110),
+
+			(9 << 16) + (0b11111111 << 8) + (0b11111111),
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+		];
+
+    	assert_eq!(sculpt_node.to_buffer(), expected);
+    }
+
+    fn multiple_nested_sculpt_node_generates_correct_buffer() {
+    	let palette = SculptPalette::new();
+		let material = palette.first();
+		let palette_ref = Rc::new(RefCell::new(palette));
+
+		let mut sculpt_node = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+
+		let mut sculpt_node_child_lfb = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.25 });
+		sculpt_node_child_lfb.children = [
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.375, z: 0.375 }))),
+		];
+
+		let mut sculpt_node_child_rfb = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.25, z: 0.25 });
+		sculpt_node_child_rfb.children = [
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.375, z: 0.375 }))),
+		];
+
+		sculpt_node.children = [
+			Some(Box::new(sculpt_node_child_lfb)),
+			Some(Box::new(sculpt_node_child_rfb)),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+		];
+
+		let expected = vec![
+			(1 << 16) + (0b11111111 << 8) + (0b11111100),
+			
+			(9 << 16) + (0b11111111 << 8) + (0b11111111),
+			(17 << 16) + (0b11111111 << 8) + (0b11111111),
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+		];
+
+    	assert_eq!(sculpt_node.to_buffer(), expected);
+    }
+
+    fn deeply_nested_sculpt_node_generates_correct_buffer() {
+    	let palette = SculptPalette::new();
+		let material = palette.first();
+		let palette_ref = Rc::new(RefCell::new(palette));
+
+		let mut sculpt_node = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+
+		let mut sculpt_node_child_lfb = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.25 });
+		sculpt_node_child_lfb.children = [
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.375, z: 0.375 }))),
+		];
+
+		let mut sculpt_node_nested_lfb = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.125, z: 0.125 });
+		sculpt_node_nested_lfb.children = [
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.5625, y: 0.0625, z: 0.0625 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.6875, y: 0.0625, z: 0.0625 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.5625, y: 0.1875, z: 0.0625 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.6875, y: 0.1875, z: 0.0625 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.5625, y: 0.0625, z: 0.1875 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.6875, y: 0.0625, z: 0.1875 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.5625, y: 0.1875, z: 0.1875 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.6875, y: 0.1875, z: 0.1875 }))),
+		];
+
+		let mut sculpt_node_child_rfb = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.25, z: 0.25 });
+		sculpt_node_child_rfb.children = [
+			Some(Box::new(sculpt_node_nested_lfb)),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.375, z: 0.375 }))),
+		];
+
+		sculpt_node.children = [
+			Some(Box::new(sculpt_node_child_lfb)),
+			Some(Box::new(sculpt_node_child_rfb)),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+		];
+
+		let expected = vec![
+			(1 << 16) + (0b11111111 << 8) + (0b11111100),
+			
+			(9 << 16) + (0b11111111 << 8) + (0b11111111),
+			(17 << 16) + (0b11111111 << 8) + (0b11111110),
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+
+			(25 << 16) + (0b11111111 << 8) + (0b11111111),
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+		];
+
+    	assert_eq!(sculpt_node.to_buffer(), expected);
+    }
+
+    fn complex_sculpt_node_generates_correct_buffer() {
+    	let palette = SculptPalette::new();
+		let material = palette.first();
+		let palette_ref = Rc::new(RefCell::new(palette));
+
+		let mut sculpt_node = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+
+		let mut sculpt_node_child_lfb = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.25 });
+		sculpt_node_child_lfb.children = [
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.125, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.375, y: 0.375, z: 0.125 }))),
+			None,
+			None,
+			None,
+			None,
+		];
+
+		let mut sculpt_node_deeply_nested_lbb = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.5625, y: 0.1875, z: 0.0625 });
+		sculpt_node_deeply_nested_lbb.children = [
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.0625, Point { x: 0.53125, y: 0.15625, z: 0.03125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.0625, Point { x: 0.59375, y: 0.15625, z: 0.03125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.0625, Point { x: 0.53125, y: 0.21875, z: 0.03125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.0625, Point { x: 0.59375, y: 0.21875, z: 0.03125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.0625, Point { x: 0.53125, y: 0.15625, z: 0.09375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.0625, Point { x: 0.59375, y: 0.15625, z: 0.09375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.0625, Point { x: 0.53125, y: 0.21875, z: 0.09375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.0625, Point { x: 0.59375, y: 0.21875, z: 0.09375 }))),
+		];
+
+		let mut sculpt_node_nested_lfb = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.125, z: 0.125 });
+		sculpt_node_nested_lfb.children = [
+			None,
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.6875, y: 0.0625, z: 0.0625 }))),
+			Some(Box::new(sculpt_node_deeply_nested_lbb)),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.6875, y: 0.1875, z: 0.0625 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.5625, y: 0.0625, z: 0.1875 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.6875, y: 0.0625, z: 0.1875 }))),
+			None,
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.125, Point { x: 0.6875, y: 0.1875, z: 0.1875 }))),
+		];
+
+		let mut sculpt_node_child_rfb = SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.25, z: 0.25 });
+		sculpt_node_child_rfb.children = [
+			Some(Box::new(sculpt_node_nested_lfb)),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.125, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.625, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.125, z: 0.375 }))),
+			None,
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.25, Point { x: 0.875, y: 0.375, z: 0.375 }))),
+		];
+
+		sculpt_node.children = [
+			Some(Box::new(sculpt_node_child_lfb)),
+			Some(Box::new(sculpt_node_child_rfb)),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
+			None,
+			Some(Box::new(SculptNode::new(Rc::downgrade(&palette_ref), material.clone(), 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+		];
+
+		let expected = vec![
+			(1 << 16) + (0b10111111 << 8) + (0b10111100),
+			
+			(8 << 16) + (0b00001111 << 8) + (0b00001111),
+			(12 << 16) + (0b10111111 << 8) + (0b10111110),
+			0,
+			0,
+			0,
+			0,
+			0,
+
+			0,
+			0,
+			0,
+			0,
+
+			(19 << 16) + (0b10111100 << 8) + (0b10111000),
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+
+			0,
+			(25 << 16) + (0b11111111 << 8) + (0b11111111),
+			0,
+			0,
+			0,
+			0,
+
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+			0,
+		];
+
+    	assert_eq!(sculpt_node.to_buffer(), expected);
+    }
 }
