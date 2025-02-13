@@ -1,4 +1,4 @@
-use crate::brush::RoundBrushTip;
+use crate::brush::{SquareBrushTip, RoundBrushTip};
 use crate::brush::Brush;
 use crate::sculpt::Sculpt;
 
@@ -8,7 +8,8 @@ use crate::sculpt::Sculpt;
 /// session configuration.
 pub struct Editor {
 	sculpt: Sculpt,
-	brush: Brush<RoundBrushTip>,
+	current_brush: usize,
+	brushes: Vec<Brush>,
 }
 
 impl Default for Editor {
@@ -16,12 +17,21 @@ impl Default for Editor {
 	fn default() -> Self {
 		Editor {
 			sculpt: Sculpt::new(),
-			brush: Brush::new("Round Brush".to_owned(), RoundBrushTip::new()),
+			current_brush: 0,
+			brushes: vec![
+				Brush::new("Round Brush".to_owned(), Box::new(RoundBrushTip::new())),
+				Brush::new("Square Brush".to_owned(), Box::new(SquareBrushTip::new())),
+			],
 		}
 	}
 }
 
 impl Editor {
+	/// Set the brush type.
+	pub fn set_brush(&mut self, brush: usize) {
+		self.current_brush = brush.clamp(0, self.brushes.len());
+	}
+
 	/// Get the buffer for the sculpted voxels.
 	pub fn get_voxel_buffer(&self) -> Vec<u32> {
 		self.sculpt.get_voxel_buffer()
@@ -29,11 +39,11 @@ impl Editor {
 
 	/// Draw additively on the sculpt.
 	pub fn add(&mut self, x: f32, y: f32) {
-		self.brush.add(&mut self.sculpt, x, y);
+		self.brushes[self.current_brush].add(&mut self.sculpt, x, y);
 	}
 
 	/// Draw subtractively on the sculpt.
 	pub fn remove(&mut self, x: f32, y: f32) {
-		self.brush.remove(&mut self.sculpt, x, y);
+		self.brushes[self.current_brush].remove(&mut self.sculpt, x, y);
 	}
 }

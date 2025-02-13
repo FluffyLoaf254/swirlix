@@ -8,6 +8,7 @@ use winit::event_loop::{EventLoop, ControlFlow, ActiveEventLoop};
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalPosition;
 use winit::event::{MouseButton, WindowEvent};
+use winit::keyboard::KeyCode;
 use winit::window::{Window, WindowId};
 
 /// The main application class.
@@ -81,6 +82,18 @@ impl ApplicationHandler for App {
                 position,
             } => {
                 self.cursor_position = position;
+            }
+            WindowEvent::KeyboardInput {
+                device_id: _,
+                event,
+                is_synthetic
+            } => {
+                if event.physical_key == KeyCode::KeyR {
+                    self.editor.set_brush(0);
+                }
+                if event.physical_key == KeyCode::KeyS {
+                    self.editor.set_brush(1);
+                }
             }
             WindowEvent::MouseInput {
                 device_id: _,

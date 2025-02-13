@@ -3,16 +3,16 @@ use crate::util::Point;
 use crate::sculpt::Sculpt;
 
 /// A brush for sculpting.
-pub struct Brush<B: Draw> {
+pub struct Brush {
 	pub name: String,
-	tip: B,
+	tip: Box<dyn Draw>,
 	size: f32,
 	material: Material,
 }
 
-impl<B: Draw> Brush<B> {
+impl Brush {
 	/// Create a new brush with a tip/effector.
-	pub fn new(name: String, tip: B) -> Self {
+	pub fn new(name: String, tip: Box<dyn Draw>) -> Self {
 		Self {
 			name,
 			tip,
@@ -137,6 +137,92 @@ impl Draw for RoundBrushTip {
 			material,
 			RoundBrushTip::filler(brush_size, brush_position),
 			RoundBrushTip::container(brush_size, brush_position)
+		);
+	}
+
+	/// Sculpt by removing geometry.
+	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32, material: Material) {
+		todo!()
+	}
+}
+
+/// A brush tip for drawing cubical shapes.
+pub struct SquareBrushTip {}
+
+impl SquareBrushTip {
+	/// Create a new square brush tip/effector.
+	pub fn new() -> Self {
+		Self {}
+	}
+
+	/// Function for implicitly defining a cubical shape for the brush.
+	pub fn filler(brush_size: f32, brush_position: Point) -> Box<dyn Fn (f32, Point) -> bool> {
+		Box::new(move |size: f32, center: Point| {
+			let half_size = size / 2.0;
+			let low_point = Point {
+				x: center.x - half_size,
+				y: center.y - half_size,
+				z: center.z - half_size,
+			};
+			let high_point = Point {
+				x: center.x + half_size,
+				y: center.y + half_size,
+				z: center.z + half_size,
+			};
+			
+
+			let x_in_range = (brush_position.x - brush_size < low_point.x && brush_position.x + brush_size > low_point.x)
+				|| (brush_position.x - brush_size < high_point.x && brush_position.x + brush_size > high_point.x);
+			let y_in_range = (brush_position.y - brush_size < low_point.y && brush_position.y + brush_size > low_point.y)
+				|| (brush_position.y - brush_size < high_point.y && brush_position.y + brush_size > high_point.y);
+			let z_in_range = (brush_position.z - brush_size < low_point.z && brush_position.z + brush_size > low_point.z)
+				|| (brush_position.z - brush_size < high_point.z && brush_position.z + brush_size > high_point.z);
+
+			x_in_range && y_in_range && z_in_range
+		})
+	}
+
+	/// Function for determining interior leaf nodes for a cube.
+	pub fn container(brush_size: f32, brush_position: Point) -> Box<dyn Fn (f32, Point) -> bool> {
+		Box::new(move |size: f32, center: Point| {
+			let half_size = size / 2.0;
+			let low_point = Point {
+				x: center.x - half_size,
+				y: center.y - half_size,
+				z: center.z - half_size,
+			};
+			let high_point = Point {
+				x: center.x + half_size,
+				y: center.y + half_size,
+				z: center.z + half_size,
+			};
+			
+
+			let x_in_range = (brush_position.x - brush_size < low_point.x && brush_position.x + brush_size > low_point.x)
+				&& (brush_position.x - brush_size < high_point.x && brush_position.x + brush_size > high_point.x);
+			let y_in_range = (brush_position.y - brush_size < low_point.y && brush_position.y + brush_size > low_point.y)
+				&& (brush_position.y - brush_size < high_point.y && brush_position.y + brush_size > high_point.y);
+			let z_in_range = (brush_position.z - brush_size < low_point.z && brush_position.z + brush_size > low_point.z)
+				&& (brush_position.z - brush_size < high_point.z && brush_position.z + brush_size > high_point.z);
+
+			x_in_range && y_in_range && z_in_range
+		})
+	}
+}
+
+impl Draw for SquareBrushTip {
+	/// Sculpt by adding geometry.
+	fn add(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32, material: Material) {
+		let brush_position = Point {
+			x,
+			y,
+			z: 0.5,
+		};
+		let brush_size = size;
+		sculpt.subdivide(
+			material,
+			SquareBrushTip::filler(brush_size, brush_position),
+			SquareBrushTip::container(brush_size, brush_position)
 		);
 	}
 
