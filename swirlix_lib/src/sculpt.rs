@@ -55,6 +55,7 @@ struct SculptNode {
 	center: Point,
 	size: f32,
 	child_count: u32,
+	is_subdivided: bool,
 }
 
 impl SculptNode {
@@ -67,6 +68,7 @@ impl SculptNode {
 			size,
 			center,
 			child_count: 0,
+			is_subdivided: false,
 		}
 	}
 
@@ -74,6 +76,11 @@ impl SculptNode {
 	///
 	/// Returns whether or not the result is a leaf.
 	fn subdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32) -> bool {
+		if self.is_subdivided && !self.children.iter().any(|child| child.is_some()) {
+			return true;
+		}
+		self.is_subdivided = true;
+		
 		if self.size <= min_leaf_size || is_contained(self.size, self.center) {
 			self.children = [None, None, None, None, None, None, None, None];
 			return true;
