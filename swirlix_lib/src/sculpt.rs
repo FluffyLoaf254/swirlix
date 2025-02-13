@@ -204,12 +204,8 @@ impl SculptNode {
 			}
 		}
 
-		for index in 0..self.children.len() {
-			if let Some(ref mut child) = self.children[index] {
-				if !child.children.iter().any(|child| child.is_some()) {
-					child.subdivide(fill.clone(), is_filled, is_contained, min_leaf_size, true);
-				}
-			}
+		if !self.children.iter().any(|child| child.is_some()) {
+			self.subdivide(fill.clone(), is_filled, is_contained, min_leaf_size, true);
 		}
 
 		is_filled(self.size, self.center) && !self.children.iter().any(|child| child.is_some())
