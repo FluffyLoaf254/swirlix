@@ -4,7 +4,7 @@ struct VertexInput {
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
+    @location(0) point: vec3<f32>,
 }
 
 @group(0) @binding(0) var<storage, read> voxels: array<u32>;
@@ -13,13 +13,12 @@ struct VertexOutput {
 fn vertex_main(input: VertexInput) -> VertexOutput {
     let x = f32(i32(input.index & 1u) * 2 - 1);
     let y = f32(i32(input.index & 2u) - 1);
-    return VertexOutput(vec4<f32>(x, y, 0.0, 1.0), vec2<f32>(x / 2.0 + 0.5, 1.0 - (y / 2.0 + 0.5)));
+    return VertexOutput(vec4<f32>(x, y, 0.0, 1.0), vec3<f32>(x / 2.0 + 0.5, 1.0 - (y / 2.0 + 0.5), 0.5));
 }
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let z = 0.5;
-    var color = vec4<f32>(input.uv.x, input.uv.y, 1.0, 1.0);
+    var color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
     var center = vec3<f32>(0.5, 0.5, 0.5);
     var size = 1.0;
     var pointer = 0u;
@@ -42,23 +41,45 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
         let children = ((current >> 8) & 255u);
         let leaves = (current & 255u);
 
-        var candidates = 0u;
-        if ((input.uv.x - center.x <= 0.0) && (input.uv.y - center.y <= 0.0) && (z - center.z <= 0.0)) {
-            candidates |= 1u; // lfb
-        } else if ((input.uv.x - center.x >= 0.0) && (input.uv.y - center.y <= 0.0) && (z - center.z <= 0.0)) {
-            candidates |= 2u; // rfb
-        } else if ((input.uv.x - center.x <= 0.0) && (input.uv.y - center.y >= 0.0) && (z - center.z <= 0.0)) {
-            candidates |= 4u; // lbb
-        } else if ((input.uv.x - center.x >= 0.0) && (input.uv.y - center.y >= 0.0) && (z - center.z <= 0.0)) {
-            candidates |= 8u; // rbb
-        } else if ((input.uv.x - center.x <= 0.0) && (input.uv.y - center.y <= 0.0) && (z - center.z >= 0.0)) {
-            candidates |= 16u; // lft
-        } else if ((input.uv.x - center.x >= 0.0) && (input.uv.y - center.y <= 0.0) && (z - center.z >= 0.0)) {
-            candidates |= 32u; // rft
-        } else if ((input.uv.x - center.x <= 0.0) && (input.uv.y - center.y >= 0.0) && (z - center.z >= 0.0)) {
-            candidates |= 64u; // lbt
-        } else if ((input.uv.x - center.x >= 0.0) && (input.uv.y - center.y >= 0.0) && (z - center.z >= 0.0)) {
-            candidates |= 128u; // rbt 
+        var candidates = 255u;
+        if (input.point.x - center.x <= 0.0) {
+            // 1 lfb
+            // 4 lbb
+            // 16 lft
+            // 64 lbt
+            candidates &= 85u;
+        } else {
+            // 2 rfb
+            // 8 rbb
+            // 32 rft
+            // 128 rbt
+            candidates &= 170u;
+        }
+        if (input.point.y - center.y <= 0.0) {
+            // 1 lfb
+            // 2 rfb
+            // 16 lft
+            // 32 rft
+            candidates &= 51u;
+        } else {
+            // 4 lbb
+            // 8 rbb
+            // 64 lbt
+            // 128 rbt
+            candidates &= 204u;
+        }
+        if (input.point.z - center.z <= 0.0) {
+            // 1 lfb
+            // 2 rfb
+            // 4 lbb
+            // 8 rbb
+            candidates &= 15u;
+        } else {
+            // 16 lft
+            // 32 rft
+            // 64 lbt
+            // 128 rbt
+            candidates &= 240u;
         }
 
         let matches = (children & candidates);
@@ -66,35 +87,35 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
             break;
         }
 
-        if ((matches & 1u) != 0) {
+        if ((matches & 1u) != 0) { // lfb
             center.x -= quarter_size;
             center.y -= quarter_size;
             center.z -= quarter_size;
-        } else if ((matches & 2u) != 0) {
+        } else if ((matches & 2u) != 0) { // rfb
             center.x += quarter_size;
             center.y -= quarter_size;
             center.z -= quarter_size;
-        } else if ((matches & 4u) != 0) {
+        } else if ((matches & 4u) != 0) { // lbb
             center.x -= quarter_size;
             center.y += quarter_size;
             center.z -= quarter_size; 
-        } else if ((matches & 8u) != 0) {
+        } else if ((matches & 8u) != 0) { // rbb
             center.x += quarter_size;
             center.y += quarter_size;
             center.z -= quarter_size;
-        } else if ((matches & 16u) != 0) {
+        } else if ((matches & 16u) != 0) { // lft
             center.x -= quarter_size;
             center.y -= quarter_size;
             center.z += quarter_size;
-        } else if ((matches & 32u) != 0) {
+        } else if ((matches & 32u) != 0) { // rft
             center.x += quarter_size;
             center.y -= quarter_size;
             center.z += quarter_size;
-        } else if ((matches & 64u) != 0) {
+        } else if ((matches & 64u) != 0) { // lbt
             center.x -= quarter_size;
             center.y += quarter_size;
             center.z += quarter_size; 
-        } else if ((matches & 128u) != 0) {
+        } else if ((matches & 128u) != 0) { // rbt
             center.x += quarter_size;
             center.y += quarter_size;
             center.z += quarter_size;

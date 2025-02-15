@@ -182,11 +182,14 @@ impl SquareBrushTip {
 			
 
 			let x_in_range = (brush_position.x - brush_size < low_point.x && brush_position.x + brush_size > low_point.x)
-				|| (brush_position.x - brush_size < high_point.x && brush_position.x + brush_size > high_point.x);
+				|| (brush_position.x - brush_size < high_point.x && brush_position.x + brush_size > high_point.x)
+				|| (brush_position.x - brush_size > low_point.x && brush_position.x + brush_size < high_point.x);
 			let y_in_range = (brush_position.y - brush_size < low_point.y && brush_position.y + brush_size > low_point.y)
-				|| (brush_position.y - brush_size < high_point.y && brush_position.y + brush_size > high_point.y);
+				|| (brush_position.y - brush_size < high_point.y && brush_position.y + brush_size > high_point.y)
+				|| (brush_position.y - brush_size > low_point.y && brush_position.y + brush_size < high_point.y);
 			let z_in_range = (brush_position.z - brush_size < low_point.z && brush_position.z + brush_size > low_point.z)
-				|| (brush_position.z - brush_size < high_point.z && brush_position.z + brush_size > high_point.z);
+				|| (brush_position.z - brush_size < high_point.z && brush_position.z + brush_size > high_point.z)
+				|| (brush_position.z - brush_size > low_point.z && brush_position.z + brush_size < high_point.z);
 
 			x_in_range && y_in_range && z_in_range
 		})

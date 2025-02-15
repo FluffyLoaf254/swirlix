@@ -7,7 +7,7 @@ use winit::error::EventLoopError;
 use winit::event_loop::{EventLoop, ControlFlow, ActiveEventLoop};
 use winit::application::ApplicationHandler;
 use winit::dpi::PhysicalPosition;
-use winit::event::{MouseButton, WindowEvent};
+use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::keyboard::KeyCode;
 use winit::window::{Window, WindowId};
 
@@ -97,18 +97,18 @@ impl ApplicationHandler for App {
             }
             WindowEvent::MouseInput {
                 device_id: _,
-                state: _,
+                state,
                 button,
             } => {
                 // left click = add
-                if button == MouseButton::Left {
+                if state == ElementState::Pressed && button == MouseButton::Left {
                     let size = self.window.as_ref().unwrap().inner_size();
                     // remap x/y values from pixel to 0-1 for now...
                     self.editor.add((self.cursor_position.x / size.width as f64) as f32, (self.cursor_position.y / size.height as f64) as f32);
                     self.context.as_mut().unwrap().set_voxel_buffer(self.editor.get_voxel_buffer());
                 }
                 // right click = remove
-                if button == MouseButton::Right {
+                if state == ElementState::Pressed && button == MouseButton::Right {
                     let size = self.window.as_ref().unwrap().inner_size();
                     // remap x/y values from pixel to 0-1 for now...
                     self.editor.remove((self.cursor_position.x / size.width as f64) as f32, (self.cursor_position.y / size.height as f64) as f32);
