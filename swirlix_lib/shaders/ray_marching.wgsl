@@ -7,6 +7,13 @@ struct VertexOutput {
     @location(0) point: vec3<f32>,
 }
 
+struct VoxelHit {
+    material: u32,
+    distance: f32,
+    center: vec3<f32>,
+    half_size: f32,
+}
+
 @group(0) @binding(0) var<storage, read> voxels: array<u32>;
 
 @vertex
@@ -21,23 +28,27 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let ray_origin = input.point; // multiply by world matrix
     let ray_direction = vec3<f32>(0.0, 0.0, 1.0); // multiply by world matrix
     
-    const max_steps = 32u;
+    const max_steps = 50u;
     const minimum_distance = 0.0;
     const maximum_distance = 1.0;
-    const half_smallest_voxel_size = 0.01;
+    const smallest_voxel_size = 0.02;
 
     var ray_distance = 0.0;
+
+    if (voxels[0u] == 0u) {
+        return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    }
 
     for (var step = 0u; step < max_steps; step += 1u) {
         let position = ray_origin + ray_distance * ray_direction;
 
-        let distance_to_closest = distance_from_voxels(position);
+        let closest = hit_voxel(position);
 
-        if (distance_to_closest <= minimum_distance) {
-            return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+        if (closest.distance <= minimum_distance) {
+            return render_surface(closest, position, ray_origin - position);
         }
 
-        ray_distance += max(half_smallest_voxel_size, distance_to_closest);
+        ray_distance += max(closest.distance * closest.half_size, smallest_voxel_size);
 
         if (ray_distance > maximum_distance) {
             break;
@@ -47,17 +58,19 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 }
 
-fn distance_from_voxels(position: vec3<f32>) -> f32 {
+fn render_surface(hit: VoxelHit, position: vec3<f32>, view_direction: vec3<f32>) -> vec4<f32> {
+    let normal = calculate_normal(hit, position);
+
+    return simple_lambert(normal, view_direction);
+}
+
+fn hit_voxel(position: vec3<f32>) -> VoxelHit {
     var pointer = 0u;
     var current = voxels[pointer];
     var voxel_center = vec3<f32>(0.5, 0.5, 0.5);
     var voxel_size = 1.0;
 
     const max_steps = 12u;
-
-    if (current == 0u) {
-        return 1.0;
-    }
 
     for (var step = 0u; step < max_steps; step += 1u) {
         let half_voxel_size = voxel_size / 2.0;
@@ -115,7 +128,9 @@ fn distance_from_voxels(position: vec3<f32>) -> f32 {
         current = voxels[pointer];
     }
 
-    return voxel_distance(position, voxel_center, voxel_size / 2.0);
+    let half_size = voxel_size / 2.0;
+
+    return VoxelHit(current, voxel_distance(position, voxel_center, half_size), voxel_center, half_size);
 }
 
 fn voxel_distance(point: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32 {
@@ -128,4 +143,31 @@ fn voxel_distance(point: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32 {
     distance = max(distance, z);
 
     return distance;
+}
+
+fn calculate_normal(voxel: VoxelHit, point: vec3<f32>) -> vec3<f32> {
+    let epsilon = voxel.half_size + 0.2;
+
+    return normalize
+    (   vec3<f32>
+        (
+            hit_voxel(point + vec3<f32>(epsilon, 0, 0)).distance - hit_voxel(point - vec3<f32>(epsilon, 0, 0)).distance,
+            hit_voxel(point + vec3<f32>(0, epsilon, 0)).distance - hit_voxel(point - vec3<f32>(0, epsilon, 0)).distance,
+            hit_voxel(point + vec3<f32>(0, 0, epsilon)).distance - hit_voxel(point - vec3<f32>(0, 0, epsilon)).distance
+        )
+    );
+}
+
+fn simple_lambert(normal: vec3<f32>, view_direction: vec3<f32>) -> vec4<f32> {
+    const specular_power = 0.5;
+    const gloss = 0.2;
+
+    let light_position = normalize(vec3<f32>(-0.5, -0.5, -1.0));
+    let color = vec3<f32>(0.25, 0.5, 0.9);
+    let light_color = vec3<f32>(1.0, 1.0, 1.0);
+    let n_dot_l = max(dot(normal, light_position), 0.0);
+    let h = (light_position - view_direction) / 2.;
+    let specular = pow(dot(normal, h), specular_power) * gloss;
+
+    return vec4<f32>(color * light_color * n_dot_l, 1.0) + specular;
 }
