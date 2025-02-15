@@ -108,7 +108,7 @@ impl Renderer {
         // load the shaders from disk
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Renderer Shader Module"),
-            source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/render.wgsl"))),
+            source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/ray_marching.wgsl"))),
         });
 
         let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {

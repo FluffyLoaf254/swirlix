@@ -147,7 +147,7 @@ impl Draw for RoundBrushTip {
 			y,
 			z: 0.5,
 		};
-		let brush_size = size;
+		let brush_size = size * 1.25;
 		sculpt.unsubdivide(
 			material,
 			RoundBrushTip::filler(brush_size, brush_position),
@@ -246,7 +246,7 @@ impl Draw for SquareBrushTip {
 			y,
 			z: 0.5,
 		};
-		let brush_size = size;
+		let brush_size = size * 1.25;
 		sculpt.unsubdivide(
 			material,
 			SquareBrushTip::filler(brush_size, brush_position),
