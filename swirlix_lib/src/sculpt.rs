@@ -24,7 +24,7 @@ impl Sculpt {
 		Self {
 			root: SculptNode::new(Rc::downgrade(&palette_ref), material, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 }),
 			palette: palette_ref,
-			min_leaf_size: 0.025,
+			min_leaf_size: 0.02,
 		}
 	}
 

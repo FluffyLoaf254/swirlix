@@ -74,7 +74,6 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 if let (Some(context), Some(window)) = (self.context.as_mut(), self.window.as_ref()) {
                     context.draw();
-                    window.request_redraw();
                 }
             }
             WindowEvent::CursorMoved {
@@ -106,6 +105,9 @@ impl ApplicationHandler for App {
                     // remap x/y values from pixel to 0-1 for now...
                     self.editor.add((self.cursor_position.x / size.width as f64) as f32, (self.cursor_position.y / size.height as f64) as f32);
                     self.context.as_mut().unwrap().set_voxel_buffer(self.editor.get_voxel_buffer());
+                    if let Some(window) = self.window.as_ref() {
+                        window.request_redraw();
+                    }
                 }
                 // right click = remove
                 if state == ElementState::Pressed && button == MouseButton::Right {
@@ -113,6 +115,9 @@ impl ApplicationHandler for App {
                     // remap x/y values from pixel to 0-1 for now...
                     self.editor.remove((self.cursor_position.x / size.width as f64) as f32, (self.cursor_position.y / size.height as f64) as f32);
                     self.context.as_mut().unwrap().set_voxel_buffer(self.editor.get_voxel_buffer());
+                    if let Some(window) = self.window.as_ref() {
+                        window.request_redraw();
+                    }
                 }
             }
             _ => (),
