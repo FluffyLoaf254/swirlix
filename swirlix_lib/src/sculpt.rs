@@ -24,7 +24,7 @@ impl Sculpt {
 		Self {
 			root: SculptNode::new(Rc::downgrade(&palette_ref), material, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 }),
 			palette: palette_ref,
-			min_leaf_size: 0.02,
+			min_leaf_size: 0.001,
 		}
 	}
 
@@ -330,7 +330,10 @@ impl SculptNode {
 	fn to_buffer(&self) -> Vec<u32> {
 		let mut buffer = Vec::<u32>::new();
 
-		buffer.push(self.to_u32(1));
+		let root = self.to_u32(1);
+
+		buffer.push(root.0);
+		buffer.push(root.1);
 
 		self.append_to_buffer(&mut buffer, 1);
 
@@ -354,7 +357,7 @@ impl SculptNode {
 	}
 
 	/// Convert a node to an integer to send to the GPU.
-	fn to_u32(&self, pointer: u32) -> u32 {
+	fn to_u32(&self, pointer: u32) -> (u32, u32) {
 		let mut value = 0u32;
 
 		let mut child_mask = 0;
@@ -378,12 +381,12 @@ impl SculptNode {
 			// value |= self.palette.upgrade().unwrap().borrow().index(*self.material);
 		} else {
 			// an interior node
-			value |= pointer << 16;
+			// value |= pointer << 16;
 			value |= child_mask << 8;
 			value |= leaf_mask;
 		}
 
-		value
+		(value, pointer * 2)
 	}
 
 	/// Handle the actual, recursive logic for generating the buffer.
@@ -397,7 +400,9 @@ impl SculptNode {
 		let mut first_child_pointer = pointer;
 		for index in 0..8 {
 			if let Some(child) = &self.children[index] {
-				buffer.push(child.to_u32(first_child_pointer));
+				let child_u32 = child.to_u32(first_child_pointer);
+				buffer.push(child_u32.0);
+				buffer.push(child_u32.1);
 				first_child_pointer += child.child_count;
 			}
 		}

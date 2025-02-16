@@ -30,8 +30,19 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
     // return vec4<f32>(compute_normal(input.uv), 1.0);
 }
 
+fn compute_normal_v2(uv: vec2<f32>) -> vec3<f32> {
+    let p = vec2<i32>(i32(uv.x * 1000.0), i32(uv.y * 1000.0));
+    let fx0 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(1, 0))).w;
+    let fx1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(1, 0))).w;
+    let fy0 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(0, 1))).w;
+    let fy1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(0, 1))).w;
+    let epsilon = 0.001;
+
+    return normalize(vec3<f32>((fx0 - fx1) / (2.0 * epsilon), (fy0 - fy1) / (2.0 * epsilon), 1.0));
+}
+
 fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
-    let p = vec2<i32>(i32(uv.x * 50.0), i32(uv.y * 50.0));
+    let p = vec2<i32>(i32(uv.x * 1000.0), i32(uv.y * 1000.0));
     let c0 = textureSample(render_texture, render_sampler, get_uv(p)).w;
     let l2 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(2, 0))).w;
     let l1 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(1, 0))).w;
@@ -51,16 +62,16 @@ fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
 
     var dpdx = vec3<f32>(0.0, 0.0, 0.0);
     if (dl < dr) {
-        dpdx = ce - get_world_pos(p - vec2<i32>(1,0), l1);
+        dpdx = ce - get_world_pos(p - vec2<i32>(1, 0), l1);
     } else {
-        dpdx = -ce + get_world_pos(p + vec2<i32>(1,0), r1);
+        dpdx = -ce + get_world_pos(p + vec2<i32>(1, 0), r1);
     }
 
     var dpdy = vec3<f32>(0.0, 0.0, 0.0);
     if (db < dt) {
-        dpdy = ce - get_world_pos(p - vec2<i32>(0,1), b1);
+        dpdy = ce - get_world_pos(p - vec2<i32>(0, 1), b1);
     } else {
-        dpdy = -ce + get_world_pos(p + vec2<i32>(0,1), t1);
+        dpdy = -ce + get_world_pos(p + vec2<i32>(0, 1), t1);
     }
 
     return normalize(cross(dpdx, dpdy));
@@ -68,16 +79,16 @@ fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
 
 fn get_world_pos(pixel: vec2<i32>, depth: f32) -> vec3<f32>
 {
-    return vec3<f32>(f32(pixel.x) / 50.0, f32(pixel.y) / 50.0, depth) * 100.0;
+    return vec3<f32>(f32(pixel.x) / 1000.0, f32(pixel.y) / 1000.0, depth);
 }
 
 fn get_uv(pixel: vec2<i32>) -> vec2<f32> {
-    return vec2<f32>(f32(pixel.x) / 50.0, f32(pixel.y) / 50.0);
+    return vec2<f32>(f32(pixel.x) / 1000.0, f32(pixel.y) / 1000.0);
 }
 
 fn simple_lambert(color: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
-    const specular_power = 2.0;
-    const gloss = 0.5;
+    const specular_power = 1.0;
+    const gloss = 1.0;
 
     let light_position = normalize(vec3<f32>(1.0, 1.0, 1.0));
     let light_color = vec3<f32>(1.0, 1.0, 1.0);
@@ -86,5 +97,5 @@ fn simple_lambert(color: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
     let h = (light_position - view_direction) / 2.;
     let specular = pow(dot(normal, h), specular_power) * gloss;
 
-    return vec4<f32>(color * light_color * n_dot_l * 0.9 + color * 0.1, 1.0) + specular;
+    return vec4<f32>(color * light_color * n_dot_l * 0.95 + color * 0.05, 1.0) + specular;
 }

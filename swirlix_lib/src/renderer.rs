@@ -72,8 +72,8 @@ impl Renderer {
             mip_level_count: 1,
             sample_count: 1,
             size: wgpu::Extent3d {
-                width: 50,
-                height: 50,
+                width: 1000,
+                height: 1000,
                 depth_or_array_layers: 1,
             },
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -99,8 +99,8 @@ impl Renderer {
             mip_level_count: 1,
             sample_count: 1,
             size: wgpu::Extent3d {
-                width: 50,
-                height: 50,
+                width: 1000,
+                height: 1000,
                 depth_or_array_layers: 1,
             },
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -120,7 +120,7 @@ impl Renderer {
 
         let voxel_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Voxel Buffer"),
-            size: 65536 * 4,
+            size: 134217728,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false
         });
@@ -151,8 +151,8 @@ impl Renderer {
         });
 
         let shading_sampler = device.create_sampler(&wgpu::SamplerDescriptor{
-              mag_filter: wgpu::FilterMode::Nearest,
-              min_filter: wgpu::FilterMode::Nearest,
+              mag_filter: wgpu::FilterMode::Linear,
+              min_filter: wgpu::FilterMode::Linear,
               ..Default::default()
         });
 
@@ -172,8 +172,8 @@ impl Renderer {
           });
 
         let render_sampler = device.create_sampler(&wgpu::SamplerDescriptor{
-              mag_filter: wgpu::FilterMode::Nearest,
-              min_filter: wgpu::FilterMode::Nearest,
+              mag_filter: wgpu::FilterMode::Linear,
+              min_filter: wgpu::FilterMode::Linear,
               ..Default::default()
         });
 
@@ -290,14 +290,14 @@ impl Renderer {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
                     count: NonZero::new(1),
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,
@@ -354,14 +354,14 @@ impl Renderer {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
                     count: NonZero::new(1),
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,

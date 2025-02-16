@@ -6,7 +6,7 @@ use std::sync::Arc;
 use winit::error::EventLoopError;
 use winit::event_loop::{EventLoop, ControlFlow, ActiveEventLoop};
 use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalPosition;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::{ElementState, MouseButton, WindowEvent};
 use winit::keyboard::KeyCode;
 use winit::window::{Window, WindowId};
@@ -37,7 +37,10 @@ impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_none() {
             let version = env!("CARGO_PKG_VERSION");
-            let win_attr = Window::default_attributes().with_title(format!("Swirlix {version}"));
+            let win_attr = Window::default_attributes().with_title(format!("Swirlix {version}")).with_inner_size(PhysicalSize {
+                width: 1000,
+                height: 1000,
+            });
             // use Arc
             let window = Arc::new(
                 event_loop
