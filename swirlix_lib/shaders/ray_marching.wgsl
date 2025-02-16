@@ -9,7 +9,6 @@ struct VertexOutput {
 
 struct VoxelHit {
     hit: bool,
-    pointer: u32,
     distance: f32,
     center: vec3<f32>,
     size: f32,
@@ -81,7 +80,7 @@ fn hit_voxel(position: vec3<f32>) -> VoxelHit {
     visited_children[level] = 0u;
     visited_centers[level] = voxel_center;
 
-    var result = VoxelHit(false, pointer, 0.0, voxel_center, voxel_size);
+    var result = VoxelHit(false, 0.0, voxel_center, voxel_size);
 
     for (var step = 0u; step < max_steps; step += 1u) {
         var parent_pointer = visited_pointers[level];
@@ -162,7 +161,6 @@ fn hit_voxel(position: vec3<f32>) -> VoxelHit {
 
 fn hit_next_voxel(pointer: u32, voxel_center: vec3<f32>, voxel_size: f32, position: vec3<f32>) -> VoxelHit {
     var current = voxels[pointer];
-    var next_pointer = voxels[pointer + 1u];
 
     let half_voxel_size = voxel_size / 2.0;
     let quarter_voxel_size = voxel_size / 4.0;
@@ -171,9 +169,8 @@ fn hit_next_voxel(pointer: u32, voxel_center: vec3<f32>, voxel_size: f32, positi
     let leaves = (current & 255u);
 
     var minimum_distance = 100.0;
-    var child_offset = 0u;
 
-    var hit = VoxelHit(false, current, 0.0, voxel_center, voxel_size);
+    var hit = VoxelHit(false, 0.0, voxel_center, voxel_size);
 
     for (var child = 0u; child < 8u; child += 1u) {
         let child_value = (1u << child);
@@ -202,10 +199,8 @@ fn hit_next_voxel(pointer: u32, voxel_center: vec3<f32>, voxel_size: f32, positi
 
         if (child_distance <= minimum_distance) {
             minimum_distance = child_distance;
-            hit = VoxelHit((leaves & child_value) != 0u, next_pointer + child_offset * 2u, child_distance, child_center, half_voxel_size);
+            hit = VoxelHit((leaves & child_value) != 0u, child_distance, child_center, half_voxel_size);
         }
-
-        child_offset += 1u;
     }
 
     return hit;
