@@ -4,17 +4,22 @@ use std::sync::Arc;
 
 use winit::window::Window;
 
-use wgpu::MemoryHints::Performance;
-use wgpu::{BindGroupLayoutDescriptor, PipelineLayoutDescriptor, ShaderSource};
-
 /// Handle rendering with wgpu.
 pub struct Renderer {
     adapter: wgpu::Adapter,
     window: Arc<Window>,
     device: wgpu::Device,
     queue: wgpu::Queue,
+    ray_marching_pipeline: wgpu::RenderPipeline,
+    ray_marching_bind_group: wgpu::BindGroup,
     render_pipeline: wgpu::RenderPipeline,
     render_bind_group: wgpu::BindGroup,
+    shading_pipeline: wgpu::RenderPipeline,
+    shading_bind_group: wgpu::BindGroup,
+    render_texture: wgpu::Texture,
+    render_texture_view: wgpu::TextureView,
+    shading_texture: wgpu::Texture,
+    shading_texture_view: wgpu::TextureView,
     voxel_buffer: wgpu::Buffer,
     surface_config: wgpu::SurfaceConfiguration,
     surface: wgpu::Surface<'static>,
@@ -40,10 +45,10 @@ impl Renderer {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    required_features: wgpu::Features::BUFFER_BINDING_ARRAY | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY,
+                    required_features: wgpu::Features::BUFFER_BINDING_ARRAY | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY | wgpu::Features::TEXTURE_BINDING_ARRAY,
                     // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
                     required_limits: wgpu::Limits::default(),
-                    memory_hints: Performance,
+                    memory_hints: wgpu::MemoryHints::Performance,
                 },
                 None,
             )
@@ -59,6 +64,60 @@ impl Renderer {
 
         surface.configure(&device, &surface_config);
 
+        let render_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Render Texture"),
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            view_formats: &[wgpu::TextureFormat::Rgba8Unorm],
+            mip_level_count: 1,
+            sample_count: 1,
+            size: wgpu::Extent3d {
+                width: 50,
+                height: 50,
+                depth_or_array_layers: 1,
+            },
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        });
+
+        let render_texture_view = render_texture.create_view(&wgpu::TextureViewDescriptor {
+            label: Some("Render Texture View"),
+            base_array_layer: 0,
+            base_mip_level: 0,
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            array_layer_count: None,
+            aspect: wgpu::TextureAspect::All,
+            format: None,
+            mip_level_count: None,
+            usage: None,
+        });
+
+        let shading_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Shading Buffer Texture"),
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            view_formats: &[wgpu::TextureFormat::Rgba8Unorm],
+            mip_level_count: 1,
+            sample_count: 1,
+            size: wgpu::Extent3d {
+                width: 50,
+                height: 50,
+                depth_or_array_layers: 1,
+            },
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        });
+
+        let shading_texture_view = shading_texture.create_view(&wgpu::TextureViewDescriptor {
+            label: Some("Shading Texture View"),
+            base_array_layer: 0,
+            base_mip_level: 0,
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            array_layer_count: None,
+            aspect: wgpu::TextureAspect::All,
+            format: None,
+            mip_level_count: None,
+            usage: None,
+        });
+
         let voxel_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Voxel Buffer"),
             size: 65536 * 4,
@@ -70,11 +129,15 @@ impl Renderer {
 
         queue.submit([]);
 
+        let ray_marching_pipeline = Renderer::create_ray_marching_pipeline(&device);
+
+        let shading_pipeline = Renderer::create_shading_pipeline(&device);
+
         let render_pipeline = Renderer::create_render_pipeline(&device, surface_config.format);
 
-        let render_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Bind Group For Voxel Buffer"),
-            layout: &render_pipeline.get_bind_group_layout(0),
+        let ray_marching_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Bind Group For Ray Marching"),
+            layout: &ray_marching_pipeline.get_bind_group_layout(0),
             entries: &[
                 wgpu::BindGroupEntry { 
                     binding: 0, 
@@ -83,6 +146,48 @@ impl Renderer {
                         offset: 0,
                         size: NonZero::new(voxel_buffer.size()),
                     })
+                },
+            ],
+        });
+
+        let shading_sampler = device.create_sampler(&wgpu::SamplerDescriptor{
+              mag_filter: wgpu::FilterMode::Nearest,
+              min_filter: wgpu::FilterMode::Nearest,
+              ..Default::default()
+        });
+
+        let shading_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Bind Group For Shading"),
+            layout: &render_pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&shading_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&render_texture_view),
+                },
+            ],
+          });
+
+        let render_sampler = device.create_sampler(&wgpu::SamplerDescriptor{
+              mag_filter: wgpu::FilterMode::Nearest,
+              min_filter: wgpu::FilterMode::Nearest,
+              ..Default::default()
+        });
+
+        let render_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Bind Group For Rendering"),
+            layout: &render_pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&render_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&shading_texture_view),
                 },
             ],
           });
@@ -95,24 +200,31 @@ impl Renderer {
             device,
             queue,
             render_pipeline,
+            ray_marching_pipeline,
+            ray_marching_bind_group,
             render_bind_group,
             voxel_buffer,
+            render_texture,
+            render_texture_view,
+            shading_texture,
+            shading_texture_view,
+            shading_pipeline,
+            shading_bind_group,
         }
     }
 
-    /// Create the render pipeline.
-    pub fn create_render_pipeline(
+    /// Create the ray marching pipeline.
+    pub fn create_ray_marching_pipeline(
         device: &wgpu::Device,
-        swap_chain_format: wgpu::TextureFormat,
     ) -> wgpu::RenderPipeline {
         // load the shaders from disk
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Renderer Shader Module"),
-            source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/ray_marching.wgsl"))),
+            label: Some("Ray Marching Shader Module"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/ray_marching.wgsl"))),
         });
 
-        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("Bind Group Layout for Voxel Buffer"),
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Bind Group Layout for Ray Marching"),
             entries: &[
                 wgpu::BindGroupLayoutEntry {
                     visibility: wgpu::ShaderStages::FRAGMENT,
@@ -129,9 +241,139 @@ impl Renderer {
             ],
         });
 
-        let pipeline_layout = device.create_pipeline_layout(& PipelineLayoutDescriptor {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Ray Marching Pipeline Layout"),
+            bind_group_layouts: &[
+                &bind_group_layout,
+            ],
+            ..Default::default()
+        });
+
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Ray Marching Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vertex_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fragment_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::TextureFormat::Rgba8Unorm.into())],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                ..Default::default()
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        })
+    }
+
+    /// Create the shading post-process pipeline.
+    pub fn create_shading_pipeline(device: &wgpu::Device) -> wgpu::RenderPipeline {
+        // load the shaders from disk
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shading Shader Module"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/shading.wgsl"))),
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Bind Group Layout for Shading"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    binding: 0,
+                    count: NonZero::new(1),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Shading Pipeline Layout"),
+            bind_group_layouts: &[
+                &bind_group_layout,
+            ],
+            ..Default::default()
+        });
+
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vertex_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fragment_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::TextureFormat::Rgba8Unorm.into())],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                ..Default::default()
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        })
+    }
+
+    /// Create the render pipeline.
+    pub fn create_render_pipeline(device: &wgpu::Device, swap_chain_format: wgpu::TextureFormat) -> wgpu::RenderPipeline {
+        // load the shaders from disk
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Renderer Shader Module"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/render.wgsl"))),
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Bind Group Layout for Renderer"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    binding: 0,
+                    count: NonZero::new(1),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Render Pipeline Layout"),
-            bind_group_layouts: &[&bind_group_layout],
+            bind_group_layouts: &[
+                &bind_group_layout,
+            ],
             ..Default::default()
         });
 
@@ -152,16 +394,6 @@ impl Renderer {
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleStrip,
-                // strip_index_format: None,
-                // front_face: wgpu::FrontFace::Ccw,
-                // cull_mode: Some(wgpu::Face::Back),
-                // // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                // // or Features::POLYGON_MODE_POINT
-                // polygon_mode: wgpu::PolygonMode::Fill,
-                // // Requires Features::DEPTH_CLIP_CONTROL
-                // unclipped_depth: false,
-                // // Requires Features::CONSERVATIVE_RASTERIZATION
-                // conservative: false,
                 ..Default::default()
             },
             depth_stencil: None,
@@ -205,10 +437,48 @@ impl Renderer {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.render_texture_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            rpass.set_pipeline(&self.ray_marching_pipeline);
+            rpass.set_bind_group(0, Some(&self.ray_marching_bind_group), &[]);
+            rpass.draw(0..4, 0..1);
+        }
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.shading_texture_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            rpass.set_pipeline(&self.shading_pipeline);
+            rpass.set_bind_group(0, Some(&self.shading_bind_group), &[]);
+            rpass.draw(0..4, 0..1);
+        }
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &texture_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
