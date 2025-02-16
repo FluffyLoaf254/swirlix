@@ -50,7 +50,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
             return vec4<f32>(1.0, 0.0, 0.0, voxel_distance(ray_origin, closest.center, closest.half_size));
         }
 
-        ray_distance += max(closest.distance * closest.half_size, smallest_voxel_size);
+        ray_distance += max(closest.distance * (closest.half_size / 2.0), smallest_voxel_size);
 
         if (ray_distance > maximum_distance) {
             break;
