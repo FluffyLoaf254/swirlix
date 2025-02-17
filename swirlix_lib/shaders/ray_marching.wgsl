@@ -9,9 +9,12 @@ struct VertexOutput {
 
 struct VoxelHit {
     hit: bool,
+    pointer: u32,
     distance: f32,
     center: vec3<f32>,
     size: f32,
+    visited: u32,
+    child_value: u32,
 }
 
 @group(0) @binding(0) var<storage, read> voxels: array<u32>;
@@ -61,86 +64,30 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 
 fn hit_voxel(position: vec3<f32>) -> VoxelHit {
-    var pointer = 0u;
-    var voxel_size = 1.0;
-
-    let voxel_center = vec3<f32>(0.5, 0.5, 0.5);
-
-    const max_steps = 12u;
+    const max_steps = 32u;
 
     var minimum_distance = 100.0;
     var level = 0u;
 
-    // parent data
-    var visited_pointers = array<u32, 12>();
-    var visited_children = array<u32, 12>();
-    var visited_centers = array<vec3<f32>, 12>();
+    var result = VoxelHit(false, 0u, 0.0, vec3<f32>(0.5, 0.5, 0.5), 1.0, 0u, 0u);
+    var next = result;
 
-    visited_pointers[level] = pointer;
-    visited_children[level] = 0u;
-    visited_centers[level] = voxel_center;
+    var visited = array<VoxelHit, 32>();
 
-    var result = VoxelHit(false, 0.0, voxel_center, voxel_size);
+    visited[level] = next;
 
     for (var step = 0u; step < max_steps; step += 1u) {
-        var parent_pointer = visited_pointers[level];
-        var parent = voxels[parent_pointer];
-        pointer = voxels[parent_pointer + 1u];
-        var siblings = ((parent >> 8) & 255u);
+        var siblings = ((voxels[next.pointer] >> 8) & 255u);
 
         // visited all siblings, go up a level
-        while ((level > 0u) && (siblings == visited_children[level])) {
+        while ((level > 0u) && (siblings == next.visited)) {
             level -= 1u;
-            parent_pointer = visited_pointers[level];
-            parent = voxels[parent_pointer];
-            pointer = voxels[parent_pointer + 1u];
-            siblings = ((parent >> 8) & 255u);
-            voxel_size *= 2.0;
+            next = visited[level];
         }
 
-        let half_voxel_size = voxel_size / 2.0;
-        let quarter_voxel_size = voxel_size / 4.0;
+        let hit = hit_next_voxel(next, position);
 
-        var chosen_sibling = 0u;
-        var sibling_offset = 0u;
-        var sibling_center = visited_centers[level];
-        
-        for (var sibling = 0u; sibling < 8u; sibling += 1u) {
-            let sibling_value = (1u << sibling);
-            if ((siblings & sibling_value) == 0u) {
-                continue;
-            }
-
-            // haven't visited this sibling
-            if ((visited_children[level] & sibling_value) == 0u) {
-                chosen_sibling = sibling_value;
-
-                if ((sibling_value & 85u) != 0u) { // left
-                    sibling_center.x -= quarter_voxel_size;
-                } else { // right
-                    sibling_center.x += quarter_voxel_size;
-                }
-                if ((sibling_value & 51u) != 0u) { // back
-                    sibling_center.y -= quarter_voxel_size;
-                } else { // front
-                    sibling_center.y += quarter_voxel_size;
-                }
-                if ((sibling_value & 15u) != 0u) { // top
-                    sibling_center.z -= quarter_voxel_size;
-                } else { // bottom
-                    sibling_center.z += quarter_voxel_size;
-                }
-                break;
-            }
-
-            sibling_offset += 1u;
-        }
-
-        visited_children[level] = (visited_children[level] | chosen_sibling);
-
-        let sibling_pointer = (pointer + sibling_offset * 2u);
-
-        let hit = hit_next_voxel(sibling_pointer, sibling_center, half_voxel_size, position);
+        next.visited = (next.visited | hit.child_value);
 
         if (hit.hit) { // is a leaf
             if (hit.distance <= minimum_distance) {
@@ -149,28 +96,28 @@ fn hit_voxel(position: vec3<f32>) -> VoxelHit {
             }
         } else { // not a leaf, go down a level
             level += 1u;
-            visited_pointers[level] = sibling_pointer;
-            visited_children[level] = 0u;
-            visited_centers[level] = sibling_center;
-            voxel_size = half_voxel_size;
+            visited[level] = next;
+            next = hit;
         }
     }
 
     return result;
 }
 
-fn hit_next_voxel(pointer: u32, voxel_center: vec3<f32>, voxel_size: f32, position: vec3<f32>) -> VoxelHit {
-    var current = voxels[pointer];
+fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
+    var current = voxels[parent.pointer];
+    var next_pointer = voxels[parent.pointer + 1u];
 
-    let half_voxel_size = voxel_size / 2.0;
-    let quarter_voxel_size = voxel_size / 4.0;
+    let half_voxel_size = parent.size / 2.0;
+    let quarter_voxel_size = parent.size / 4.0;
 
     let children = ((current >> 8) & 255u);
     let leaves = (current & 255u);
 
     var minimum_distance = 100.0;
 
-    var hit = VoxelHit(false, 0.0, voxel_center, voxel_size);
+    var hit = parent;
+    var child_offset = 0u;
 
     for (var child = 0u; child < 8u; child += 1u) {
         let child_value = (1u << child);
@@ -178,7 +125,12 @@ fn hit_next_voxel(pointer: u32, voxel_center: vec3<f32>, voxel_size: f32, positi
             continue;
         }
 
-        var child_center = voxel_center;
+        if ((parent.visited & child_value) != 0u) {
+            child_offset += 1u;
+            continue;
+        }
+
+        var child_center = parent.center;
         if ((child_value & 85u) != 0u) { // left
             child_center.x -= quarter_voxel_size;
         } else { // right
@@ -199,8 +151,10 @@ fn hit_next_voxel(pointer: u32, voxel_center: vec3<f32>, voxel_size: f32, positi
 
         if (child_distance <= minimum_distance) {
             minimum_distance = child_distance;
-            hit = VoxelHit((leaves & child_value) != 0u, child_distance, child_center, half_voxel_size);
+            hit = VoxelHit((leaves & child_value) != 0u, next_pointer + child_offset * 2u, child_distance, child_center, half_voxel_size, 0u, child_value);
         }
+
+        child_offset += 1u;
     }
 
     return hit;
