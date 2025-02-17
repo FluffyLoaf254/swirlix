@@ -44,17 +44,17 @@ fn simple_compute_normal(uv: vec2<f32>) -> vec3<f32> {
 }
 
 fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
-    let delta = 1;
+    let delta = 4;
     let p = vec2<i32>(i32(uv.x * dimensions), i32(uv.y * dimensions));
     let c0 = textureSample(render_texture, render_sampler, get_uv(p)).w;
-    let l2 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(delta * 2, 0))).w;
+    let l2 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(delta + 2, 0))).w;
     let l1 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(delta, 0))).w;
     let r1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(delta, 0))).w;
-    let r2 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(delta * 2, 0))).w;
-    let b2 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(0, delta * 2))).w;
+    let r2 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(delta + 2, 0))).w;
+    let b2 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(0, delta + 2))).w;
     let b1 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(0, delta))).w;
     let t1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(0, delta))).w;
-    let t2 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(0, delta * 2))).w;
+    let t2 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(0, delta + 2))).w;
     
     let dl = abs(l1 * l2 / (2.0 * l2 - l1) - c0);
     let dr = abs(r1 * r2 / (2.0 * r2 - r1) - c0);
@@ -91,7 +91,7 @@ fn get_uv(pixel: vec2<i32>) -> vec2<f32> {
 
 fn simple_blinn_phong(color: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
     const specular_power = 2.0;
-    const gloss = 0.95;
+    const gloss = 0.75;
 
     let light_direction = normalize(vec3<f32>(0.8, 0.8, 1.0));
     let light_color = vec3<f32>(1.0, 1.0, 1.0);

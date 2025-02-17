@@ -24,28 +24,30 @@ const dimensions = 256.0;
 @fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let initial = textureSample(render_texture, render_sampler, input.uv);
 
-    const allowed = (8.0 / dimensions);
-    const delta = 8;
+    const delta = 7;
+    const allowed = 0.01;
 
     let p = vec2<i32>(i32(input.uv.x * dimensions), i32(input.uv.y * dimensions));
 
-    var minimum = initial.w;
-    var maximum = initial.w;
+    var total = 0.0;
+    var count = 0.0;
 
-    for (var x = -delta; x <= delta; x++) {
-        for (var y = -delta; y <= delta; y++) {
-            if (x == 0 && y == 0) {
-                continue;
+    for (var x = 0; x <= delta; x++) {
+        for (var y = 0; y <= delta; y++) {
+            let pos_depth = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(x, y))).w;
+            if (abs(initial.w - pos_depth) <= allowed) {
+                count += 1.0;
+                total += pos_depth;
             }
-            let depth = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(x, y))).w;
-            if (abs(depth - initial.w) <= allowed) {
-                minimum = min(minimum, depth);
-                maximum = max(maximum, depth);
-            }   
+            let neg_depth = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(x, y))).w;
+            if (abs(initial.w - neg_depth) <= allowed) {
+                count += 1.0;
+                total += neg_depth;
+            }
         }
     }
 
-    return vec4<f32>(initial.rgb, (maximum + minimum) / 2.0);
+    return vec4<f32>(initial.rgb, total / count);
 }
 
 fn get_uv(pixel: vec2<i32>) -> vec2<f32> {

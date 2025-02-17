@@ -49,7 +49,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
             break;
         }
 
-        if (closest.distance <= (1.0 / dimensions)) {
+        if (closest.distance <= 0.0) {
             return vec4<f32>(1.0, 0.0, 0.0, voxel_distance(ray_origin, closest.center, closest.size / 2.0));
         }
 
@@ -93,7 +93,7 @@ fn hit_voxel(position: vec3<f32>) -> VoxelHit {
             if (hit.distance < minimum_distance) {
                 result = hit;
                 minimum_distance = hit.distance;
-                if (hit.distance <= (1.0 / dimensions)) {
+                if (hit.distance <= 0.0) {
                     break;
                 }
             }
