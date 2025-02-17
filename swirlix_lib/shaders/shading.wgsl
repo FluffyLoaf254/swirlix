@@ -91,7 +91,7 @@ fn get_uv(pixel: vec2<i32>) -> vec2<f32> {
 
 fn simple_blinn_phong(color: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
     const specular_power = 2.0;
-    const gloss = 0.75;
+    const gloss = 0.8;
 
     let light_direction = normalize(vec3<f32>(0.8, 0.8, 1.0));
     let light_color = vec3<f32>(1.0, 1.0, 1.0);

@@ -24,8 +24,8 @@ const dimensions = 256.0;
 @fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let initial = textureSample(render_texture, render_sampler, input.uv);
 
-    const delta = 7;
-    const allowed = 0.01;
+    const delta = 32;
+    const allowed = 0.015;
 
     let p = vec2<i32>(i32(input.uv.x * dimensions), i32(input.uv.y * dimensions));
 

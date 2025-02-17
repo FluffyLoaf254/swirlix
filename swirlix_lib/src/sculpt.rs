@@ -203,7 +203,7 @@ impl SculptNode {
 		if !is_filled(self.size, self.center) {
 			return false;
 		}
-		if !self.is_subdivided {
+		if !self.is_subdivided || is_contained(self.size, self.center) {
 			return true;
 		}
 
