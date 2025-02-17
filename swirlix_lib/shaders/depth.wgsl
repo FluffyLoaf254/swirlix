@@ -25,7 +25,7 @@ const dimensions = 256.0;
     let sample = textureSample(render_texture, render_sampler, input.uv);
 
     const allowed = (8.0 / dimensions);
-    const epsilon = 2;
+    const epsilon = 1;
 
     let p = vec2<i32>(i32(input.uv.x * dimensions), i32(input.uv.y * dimensions));
     let fx0 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(epsilon, 0))).w;

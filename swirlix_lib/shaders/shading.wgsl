@@ -43,7 +43,7 @@ fn simple_compute_normal(uv: vec2<f32>) -> vec3<f32> {
 }
 
 fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
-    let epsilon = 3;
+    let epsilon = 1;
     let p = vec2<i32>(i32(uv.x * dimensions), i32(uv.y * dimensions));
     let c0 = textureSample(render_texture, render_sampler, get_uv(p)).w;
     let l2 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(epsilon * 2, 0))).w;
