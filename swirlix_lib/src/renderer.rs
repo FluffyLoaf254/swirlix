@@ -161,7 +161,7 @@ impl Renderer {
 
         queue.submit([]);
 
-        let ray_marching_pipeline = Renderer::create_ray_marching_pipeline(&device, surface_config.format);
+        let ray_marching_pipeline = Renderer::create_ray_marching_pipeline(&device);
 
         let depth_pipeline = Renderer::create_depth_pipeline(&device);
 
@@ -274,7 +274,9 @@ impl Renderer {
     }
 
     /// Create the ray marching pipeline.
-    pub fn create_ray_marching_pipeline(device: &wgpu::Device,  swap_chain_format: wgpu::TextureFormat) -> wgpu::RenderPipeline {
+    pub fn create_ray_marching_pipeline(
+        device: &wgpu::Device,
+    ) -> wgpu::RenderPipeline {
         // load the shaders from disk
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Ray Marching Shader Module"),
@@ -320,7 +322,7 @@ impl Renderer {
                 module: &shader,
                 entry_point: Some("fragment_main"),
                 compilation_options: Default::default(),
-                targets: &[Some(swap_chain_format.into())],
+                targets: &[Some(wgpu::TextureFormat::Rgba8Unorm.into())],
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleStrip,
@@ -559,7 +561,7 @@ impl Renderer {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &texture_view,
+                    view: &self.ray_marching_texture_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
@@ -574,63 +576,63 @@ impl Renderer {
             rpass.set_bind_group(0, Some(&self.ray_marching_bind_group), &[]);
             rpass.draw(0..4, 0..1);
         }
-        // {
-        //     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //         label: None,
-        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //             view: &self.depth_texture_view,
-        //             resolve_target: None,
-        //             ops: wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-        //                 store: wgpu::StoreOp::Store,
-        //             },
-        //         })],
-        //         depth_stencil_attachment: None,
-        //         timestamp_writes: None,
-        //         occlusion_query_set: None,
-        //     });
-        //     rpass.set_pipeline(&self.depth_pipeline);
-        //     rpass.set_bind_group(0, Some(&self.depth_bind_group), &[]);
-        //     rpass.draw(0..4, 0..1);
-        // }
-        // {
-        //     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //         label: None,
-        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //             view: &self.shading_texture_view,
-        //             resolve_target: None,
-        //             ops: wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-        //                 store: wgpu::StoreOp::Store,
-        //             },
-        //         })],
-        //         depth_stencil_attachment: None,
-        //         timestamp_writes: None,
-        //         occlusion_query_set: None,
-        //     });
-        //     rpass.set_pipeline(&self.shading_pipeline);
-        //     rpass.set_bind_group(0, Some(&self.shading_bind_group), &[]);
-        //     rpass.draw(0..4, 0..1);
-        // }
-        // {
-        //     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //         label: None,
-        //         color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //             view: &texture_view,
-        //             resolve_target: None,
-        //             ops: wgpu::Operations {
-        //                 load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-        //                 store: wgpu::StoreOp::Store,
-        //             },
-        //         })],
-        //         depth_stencil_attachment: None,
-        //         timestamp_writes: None,
-        //         occlusion_query_set: None,
-        //     });
-        //     rpass.set_pipeline(&self.render_pipeline);
-        //     rpass.set_bind_group(0, Some(&self.render_bind_group), &[]);
-        //     rpass.draw(0..4, 0..1);
-        // }
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.depth_texture_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            rpass.set_pipeline(&self.depth_pipeline);
+            rpass.set_bind_group(0, Some(&self.depth_bind_group), &[]);
+            rpass.draw(0..4, 0..1);
+        }
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.shading_texture_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            rpass.set_pipeline(&self.shading_pipeline);
+            rpass.set_bind_group(0, Some(&self.shading_bind_group), &[]);
+            rpass.draw(0..4, 0..1);
+        }
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &texture_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            rpass.set_pipeline(&self.render_pipeline);
+            rpass.set_bind_group(0, Some(&self.render_bind_group), &[]);
+            rpass.draw(0..4, 0..1);
+        }
         self.queue.submit(Some(encoder.finish()));
         surface_texture.present();
     }

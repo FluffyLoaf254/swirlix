@@ -97,7 +97,7 @@ impl SculptNode {
 		}
 		self.is_subdivided = true;
 		
-		if self.size <= min_leaf_size || (!invert && is_contained(self.size, self.center)) {
+		if self.size <= min_leaf_size || (is_contained(self.size, self.center) == !invert) {
 			self.children = [None, None, None, None, None, None, None, None];
 			return true;
 		}

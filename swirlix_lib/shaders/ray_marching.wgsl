@@ -29,7 +29,7 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 }
 
 const dimensions = 256.0;
-const hit_distance = 0.001;
+const hit_distance = 0.005;
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
@@ -42,21 +42,21 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     var ray_distance = 0.0;
 
     for (var step = 0u; step < max_steps; step += 1u) {
-        let position = ray_origin + ray_distance * ray_direction;
+        var position = ray_origin + ray_distance * ray_direction;
 
-        let closest = hit_voxel(position);
+        let closest = hit_root(position);
 
         if (!closest.hit) {
             break;
         }
 
-        if (closest.distance <= hit_distance) {
-            let point = ray_origin + ray_distance * ray_direction;
-            // return vec4<f32>(voxel_normal(closest), 1.0);
-            return simple_blinn_phong(vec3<f32>(1.0, 0.1, 0.2), voxel_normal(point));
-        }
-
         ray_distance += max(closest.distance, 1.0 / dimensions);
+
+        if (closest.distance <= hit_distance) {
+            position = (ray_origin + ray_distance * ray_direction);
+
+            return vec4<f32>(1.0, 0.0, 0.0, ray_distance);
+        }
 
         if (ray_distance > maximum_distance) {
             break;
@@ -66,30 +66,24 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 }
 
-fn simple_blinn_phong(color: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
-    const specular_power = 2.0;
-    const gloss = 0.85;
+fn hit_root(position: vec3<f32>) -> VoxelHit {
+    let root = VoxelHit(false, 0u, 100.0, vec3<f32>(0.5, 0.5, 0.5), 1.0, 0u, 0u);
 
-    let light_direction = normalize(vec3<f32>(0.8, 0.8, 1.0));
-    let light_color = vec3<f32>(1.0, 1.0, 1.0);
-    let n_dot_l = max(dot(normal, light_direction), 0.0);
-    let view_direction = vec3<f32>(0.0, 0.0, 1.0); // set this based on camera
-    let h = (light_direction - view_direction) / 2.;
-    let specular = pow(dot(normal, h), specular_power) * gloss;
+    var hit = hit_voxel(root, position);
 
-    return vec4<f32>(color * light_color * n_dot_l, 1.0) + specular;
+    return hit;
 }
 
-fn hit_voxel(position: vec3<f32>) -> VoxelHit {
-    const max_steps = 32u;
+fn hit_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
+    const max_steps = 64u;
 
     var minimum_distance = 100.0;
     var level = 0u;
 
-    var result = VoxelHit(false, 0u, 0.0, vec3<f32>(0.5, 0.5, 0.5), 1.0, 0u, 0u);
-    var next = result;
+    var result = parent;
+    var next = parent;
 
-    var visited = array<VoxelHit, 64>();
+    var visited = array<VoxelHit, 12>();
 
     visited[level] = next;
 
@@ -187,18 +181,8 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
     return hit;
 }
 
-fn voxel_distance(point: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32 {
-    let shifted = abs((point - center) / half_size);
+fn voxel_distance(position: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32 {
+    let shifted = abs((position - center) / half_size);
 
     return sqrt(pow(max(0.0, shifted.x - 1.0), 2.0) + pow(max(0.0, shifted.y - 1.0), 2.0) + pow(max(0.0, shifted.z - 1.0), 2.0)) * half_size;
-}
-
-fn voxel_normal(point: vec3<f32>) -> vec3<f32> {
-    let epsilon = 0.05;
-
-    var x = hit_voxel(point - vec3<f32>(epsilon, 0.0, 0.0)).distance - hit_voxel(point + vec3<f32>(epsilon, 0.0, 0.0)).distance;
-    var y = hit_voxel(point - vec3<f32>(0.0, epsilon, 0.0)).distance - hit_voxel(point + vec3<f32>(0.0, epsilon, 0.0)).distance;
-    var z = hit_voxel(point - vec3<f32>(0.0, 0.0, epsilon)).distance - hit_voxel(point + vec3<f32>(0.0, 0.0, epsilon)).distance;
-
-    return normalize(vec3<f32>(x, y, z));
 }
