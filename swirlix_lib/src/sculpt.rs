@@ -50,7 +50,7 @@ impl Sculpt {
 	pub fn subdivide(&mut self, fill: Material, is_filled: Box<dyn Fn(f32, Point) -> bool>, is_contained: Box<dyn Fn(f32, Point) -> bool>) {
 		self.palette.borrow_mut().push(fill);
 		let material = self.palette.borrow().get(fill);
-		self.root.subdivide(material.clone(), &is_filled, &is_contained, self.min_leaf_size());
+		self.root.subdivide(material.clone(), &is_filled, &is_contained, self.min_leaf_size(), false);
 		self.root.set_child_count();
 	}
 
@@ -91,13 +91,13 @@ impl SculptNode {
 	/// Handles the sparse voxel octree subdividing modifications, recursively.
 	///
 	/// Returns whether or not the result is a leaf.
-	fn subdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32) -> bool {
-		if self.is_subdivided && !self.children.iter().any(|child| child.is_some()) {
+	fn subdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32, invert: bool) -> bool {
+		if !invert && self.is_subdivided && !self.children.iter().any(|child| child.is_some()) {
 			return true;
 		}
 		self.is_subdivided = true;
 		
-		if self.size <= min_leaf_size || is_contained(self.size, self.center) {
+		if self.size <= min_leaf_size || (!invert && is_contained(self.size, self.center)) {
 			self.children = [None, None, None, None, None, None, None, None];
 			return true;
 		}
@@ -153,28 +153,28 @@ impl SculptNode {
 			z: self.center.z + quarter_size,
 		};
 
-		if is_filled(half_size, lfb) && !self.children[0].is_some() {
+		if (is_filled(half_size, lfb) == !invert) && !self.children[0].is_some() {
 			self.children[0] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lfb)));
 		};
-		if is_filled(half_size, rfb) && !self.children[1].is_some() {
+		if (is_filled(half_size, rfb) == !invert) && !self.children[1].is_some() {
 			self.children[1] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rfb)));
 		};
-		if is_filled(half_size, lbb) && !self.children[2].is_some() {
+		if (is_filled(half_size, lbb) == !invert) && !self.children[2].is_some() {
 			self.children[2] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lbb)));
 		};
-		if is_filled(half_size, rbb) && !self.children[3].is_some() {
+		if (is_filled(half_size, rbb) == !invert) && !self.children[3].is_some() {
 			self.children[3] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rbb)));
 		};
-		if is_filled(half_size, lft) && !self.children[4].is_some() {
+		if (is_filled(half_size, lft) == !invert) && !self.children[4].is_some() {
 			self.children[4] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lft)));
 		};
-		if is_filled(half_size, rft) && !self.children[5].is_some() {
+		if (is_filled(half_size, rft) == !invert) && !self.children[5].is_some() {
 			self.children[5] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rft)));
 		};
-		if is_filled(half_size, lbt) && !self.children[6].is_some() {
+		if (is_filled(half_size, lbt) == !invert) && !self.children[6].is_some() {
 			self.children[6] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lbt)));
 		};
-		if is_filled(half_size, rbt) && !self.children[7].is_some() {
+		if (is_filled(half_size, rbt) == !invert) && !self.children[7].is_some() {
 			self.children[7] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rbt)));
 		};
 
@@ -182,7 +182,7 @@ impl SculptNode {
 
 		for index in 0..self.children.len() {
 			if let Some(ref mut child) = self.children[index] {
-				let leaf = child.subdivide(fill.clone(), &is_filled, &is_contained, min_leaf_size);
+				let leaf = child.subdivide(fill.clone(), &is_filled, &is_contained, min_leaf_size, invert);
 				all_leaves = all_leaves && leaf;
 			} else {
 				all_leaves = false;
@@ -193,7 +193,7 @@ impl SculptNode {
 			self.children = [None, None, None, None, None, None, None, None];
 		}
 
-		return all_leaves;
+		return !self.children.iter().any(|child| child.is_some());
 	}
 
 	/// Handles the sparse voxel octree unsubdividing modifications, recursively.
@@ -229,86 +229,7 @@ impl SculptNode {
 			return false;
 		}
 
-		if self.size <= min_leaf_size {
-			self.children = [None, None, None, None, None, None, None, None];
-			return true;
-		}
-
-		let half_size = self.size / 2.0;
-		let quarter_size = self.size / 4.0;
-
-		let lfb = Point {
-			x: self.center.x - quarter_size,
-			y: self.center.y - quarter_size,
-			z: self.center.z - quarter_size,
-		};
-
-		let rfb = Point {
-			x: self.center.x + quarter_size,
-			y: self.center.y - quarter_size,
-			z: self.center.z - quarter_size,
-		};
-
-		let lbb = Point {
-			x: self.center.x - quarter_size,
-			y: self.center.y + quarter_size,
-			z: self.center.z - quarter_size,
-		};
-
-		let rbb = Point {
-			x: self.center.x + quarter_size,
-			y: self.center.y + quarter_size,
-			z: self.center.z - quarter_size,
-		};
-
-		let lft = Point {
-			x: self.center.x - quarter_size,
-			y: self.center.y - quarter_size,
-			z: self.center.z + quarter_size,
-		};
-
-		let rft = Point {
-			x: self.center.x + quarter_size,
-			y: self.center.y - quarter_size,
-			z: self.center.z + quarter_size,
-		};
-
-		let lbt = Point {
-			x: self.center.x - quarter_size,
-			y: self.center.y + quarter_size,
-			z: self.center.z + quarter_size,
-		};
-
-		let rbt = Point {
-			x: self.center.x + quarter_size,
-			y: self.center.y + quarter_size,
-			z: self.center.z + quarter_size,
-		};
-
-		if !is_filled(half_size, lfb) && !self.children[0].is_some() {
-			self.children[0] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lfb)));
-		};
-		if !is_filled(half_size, rfb) && !self.children[1].is_some() {
-			self.children[1] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rfb)));
-		};
-		if !is_filled(half_size, lbb) && !self.children[2].is_some() {
-			self.children[2] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lbb)));
-		};
-		if !is_filled(half_size, rbb) && !self.children[3].is_some() {
-			self.children[3] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rbb)));
-		};
-		if !is_filled(half_size, lft) && !self.children[4].is_some() {
-			self.children[4] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lft)));
-		};
-		if !is_filled(half_size, rft) && !self.children[5].is_some() {
-			self.children[5] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rft)));
-		};
-		if !is_filled(half_size, lbt) && !self.children[6].is_some() {
-			self.children[6] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, lbt)));
-		};
-		if !is_filled(half_size, rbt) && !self.children[7].is_some() {
-			self.children[7] = Some(Box::new(SculptNode::new(self.palette.clone(), fill.clone(), half_size, rbt)));
-		};
+		self.subdivide(fill.clone(), &is_filled, &is_contained, min_leaf_size, true);
 
 		if !self.children.iter().any(|child| child.is_some()) {
 			self.is_subdivided = false;
