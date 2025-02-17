@@ -19,7 +19,7 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 @group(0) @binding(0) var render_sampler: sampler;
 @group(0) @binding(1) var render_texture: texture_2d<f32>;
 
-const dimensions = 128.0;
+const dimensions = 256.0;
 
 @fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let sample = textureSample(render_texture, render_sampler, input.uv);
@@ -37,22 +37,23 @@ fn simple_compute_normal(uv: vec2<f32>) -> vec3<f32> {
     let fx1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(1, 0))).w;
     let fy0 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(0, 1))).w;
     let fy1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(0, 1))).w;
-    let epsilon = 0.001;
+    let epsilon = (1.0 / dimensions);
 
     return normalize(vec3<f32>((fx0 - fx1) / (2.0 * epsilon), (fy0 - fy1) / (2.0 * epsilon), 1.0));
 }
 
 fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
+    let epsilon = 3;
     let p = vec2<i32>(i32(uv.x * dimensions), i32(uv.y * dimensions));
     let c0 = textureSample(render_texture, render_sampler, get_uv(p)).w;
-    let l2 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(2, 0))).w;
-    let l1 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(1, 0))).w;
-    let r1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(1, 0))).w;
-    let r2 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(2, 0))).w;
-    let b2 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(0, 2))).w;
-    let b1 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(0, 1))).w;
-    let t1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(0, 1))).w;
-    let t2 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(0, 2))).w;
+    let l2 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(epsilon * 2, 0))).w;
+    let l1 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(epsilon, 0))).w;
+    let r1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(epsilon, 0))).w;
+    let r2 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(epsilon * 2, 0))).w;
+    let b2 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(0, epsilon * 2))).w;
+    let b1 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(0, epsilon))).w;
+    let t1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(0, epsilon))).w;
+    let t2 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(0, epsilon * 2))).w;
     
     let dl = abs(l1 * l2 / (2.0 * l2 - l1) - c0);
     let dr = abs(r1 * r2 / (2.0 * r2 - r1) - c0);
@@ -63,16 +64,16 @@ fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
 
     var dpdx = vec3<f32>(0.0, 0.0, 0.0);
     if (dl < dr) {
-        dpdx = ce - get_world_pos(p - vec2<i32>(1, 0), l1);
+        dpdx = ce - get_world_pos(p - vec2<i32>(epsilon, 0), l1);
     } else {
-        dpdx = -ce + get_world_pos(p + vec2<i32>(1, 0), r1);
+        dpdx = -ce + get_world_pos(p + vec2<i32>(epsilon, 0), r1);
     }
 
     var dpdy = vec3<f32>(0.0, 0.0, 0.0);
     if (db < dt) {
-        dpdy = ce - get_world_pos(p - vec2<i32>(0, 1), b1);
+        dpdy = ce - get_world_pos(p - vec2<i32>(0, epsilon), b1);
     } else {
-        dpdy = -ce + get_world_pos(p + vec2<i32>(0, 1), t1);
+        dpdy = -ce + get_world_pos(p + vec2<i32>(0, epsilon), t1);
     }
 
     return normalize(cross(dpdx, dpdy));

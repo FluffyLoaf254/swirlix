@@ -28,7 +28,7 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
     return VertexOutput(vec4<f32>(x, y, 0.0, 1.0), vec2<f32>(u, v));
 }
 
-const dimensions = 128.0;
+const dimensions = 256.0;
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {

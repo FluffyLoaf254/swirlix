@@ -9,21 +9,25 @@ pub struct Renderer {
     pixels: u32,
     adapter: wgpu::Adapter,
     window: Arc<Window>,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    ray_marching_pipeline: wgpu::RenderPipeline,
-    ray_marching_bind_group: wgpu::BindGroup,
-    render_pipeline: wgpu::RenderPipeline,
-    render_bind_group: wgpu::BindGroup,
-    shading_pipeline: wgpu::RenderPipeline,
-    shading_bind_group: wgpu::BindGroup,
-    render_texture: wgpu::Texture,
-    render_texture_view: wgpu::TextureView,
-    shading_texture: wgpu::Texture,
-    shading_texture_view: wgpu::TextureView,
-    voxel_buffer: wgpu::Buffer,
     surface_config: wgpu::SurfaceConfiguration,
     surface: wgpu::Surface<'static>,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    voxel_buffer: wgpu::Buffer,
+    ray_marching_pipeline: wgpu::RenderPipeline,
+    ray_marching_bind_group: wgpu::BindGroup,
+    depth_pipeline: wgpu::RenderPipeline,
+    depth_bind_group: wgpu::BindGroup,
+    depth_texture: wgpu::Texture,
+    depth_texture_view: wgpu::TextureView,
+    shading_pipeline: wgpu::RenderPipeline,
+    shading_bind_group: wgpu::BindGroup,
+    shading_texture: wgpu::Texture,
+    shading_texture_view: wgpu::TextureView,
+    render_pipeline: wgpu::RenderPipeline,
+    render_bind_group: wgpu::BindGroup,
+    ray_marching_texture: wgpu::Texture,
+    ray_marching_texture_view: wgpu::TextureView,
 }
 
 impl Renderer {
@@ -65,8 +69,8 @@ impl Renderer {
 
         surface.configure(&device, &surface_config);
 
-        let render_texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Render Texture"),
+        let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Depth Buffer Texture"),
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8Unorm,
             view_formats: &[wgpu::TextureFormat::Rgba8Unorm],
@@ -80,8 +84,8 @@ impl Renderer {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
         });
 
-        let render_texture_view = render_texture.create_view(&wgpu::TextureViewDescriptor {
-            label: Some("Render Texture View"),
+        let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor {
+            label: Some("Depth Texture View"),
             base_array_layer: 0,
             base_mip_level: 0,
             dimension: Some(wgpu::TextureViewDimension::D2),
@@ -119,6 +123,33 @@ impl Renderer {
             usage: None,
         });
 
+        let ray_marching_texture = device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Render Texture"),
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8Unorm,
+            view_formats: &[wgpu::TextureFormat::Rgba8Unorm],
+            mip_level_count: 1,
+            sample_count: 1,
+            size: wgpu::Extent3d {
+                width: pixels,
+                height: pixels,
+                depth_or_array_layers: 1,
+            },
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
+        });
+
+        let ray_marching_texture_view = ray_marching_texture.create_view(&wgpu::TextureViewDescriptor {
+            label: Some("Render Texture View"),
+            base_array_layer: 0,
+            base_mip_level: 0,
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            array_layer_count: None,
+            aspect: wgpu::TextureAspect::All,
+            format: None,
+            mip_level_count: None,
+            usage: None,
+        });
+
         let voxel_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Voxel Buffer"),
             size: 134217728,
@@ -131,6 +162,8 @@ impl Renderer {
         queue.submit([]);
 
         let ray_marching_pipeline = Renderer::create_ray_marching_pipeline(&device);
+
+        let depth_pipeline = Renderer::create_depth_pipeline(&device);
 
         let shading_pipeline = Renderer::create_shading_pipeline(&device);
 
@@ -151,9 +184,30 @@ impl Renderer {
             ],
         });
 
+        let depth_sampler = device.create_sampler(&wgpu::SamplerDescriptor{
+              mag_filter: wgpu::FilterMode::Linear,
+              min_filter: wgpu::FilterMode::Linear,
+              ..Default::default()
+        });
+
+        let depth_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Bind Group For Depth"),
+            layout: &render_pipeline.get_bind_group_layout(0),
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Sampler(&depth_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&ray_marching_texture_view),
+                },
+            ],
+        });
+
         let shading_sampler = device.create_sampler(&wgpu::SamplerDescriptor{
-              mag_filter: wgpu::FilterMode::Nearest,
-              min_filter: wgpu::FilterMode::Nearest,
+              mag_filter: wgpu::FilterMode::Linear,
+              min_filter: wgpu::FilterMode::Linear,
               ..Default::default()
         });
 
@@ -167,14 +221,14 @@ impl Renderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&render_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&depth_texture_view),
                 },
             ],
-          });
+        });
 
         let render_sampler = device.create_sampler(&wgpu::SamplerDescriptor{
-              mag_filter: wgpu::FilterMode::Nearest,
-              min_filter: wgpu::FilterMode::Nearest,
+              mag_filter: wgpu::FilterMode::Linear,
+              min_filter: wgpu::FilterMode::Linear,
               ..Default::default()
         });
 
@@ -191,7 +245,7 @@ impl Renderer {
                     resource: wgpu::BindingResource::TextureView(&shading_texture_view),
                 },
             ],
-          });
+        });
 
         Renderer {
             pixels,
@@ -201,17 +255,21 @@ impl Renderer {
             window,
             device,
             queue,
-            render_pipeline,
+            voxel_buffer,
             ray_marching_pipeline,
             ray_marching_bind_group,
-            render_bind_group,
-            voxel_buffer,
-            render_texture,
-            render_texture_view,
-            shading_texture,
-            shading_texture_view,
+            ray_marching_texture,
+            ray_marching_texture_view,
+            depth_pipeline,
+            depth_bind_group,
+            depth_texture,
+            depth_texture_view,
             shading_pipeline,
             shading_bind_group,
+            shading_texture,
+            shading_texture_view,
+            render_pipeline,
+            render_bind_group,
         }
     }
 
@@ -278,6 +336,70 @@ impl Renderer {
     }
 
     /// Create the shading post-process pipeline.
+    pub fn create_depth_pipeline(device: &wgpu::Device) -> wgpu::RenderPipeline {
+        // load the shaders from disk
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Depth Shader Module"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("../shaders/depth.wgsl"))),
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("Bind Group Layout for Depth"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    binding: 0,
+                    count: NonZero::new(1),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        multisampled: false,
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
+            ],
+        });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("Depth Pipeline Layout"),
+            bind_group_layouts: &[
+                &bind_group_layout,
+            ],
+            ..Default::default()
+        });
+
+        device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Depth Pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vertex_main"),
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fragment_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::TextureFormat::Rgba8Unorm.into())],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                ..Default::default()
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        })
+    }
+
+    /// Create the shading post-process pipeline.
     pub fn create_shading_pipeline(device: &wgpu::Device) -> wgpu::RenderPipeline {
         // load the shaders from disk
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -292,14 +414,14 @@ impl Renderer {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
                     count: NonZero::new(1),
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,
@@ -316,7 +438,7 @@ impl Renderer {
         });
 
         device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Shading Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -356,14 +478,14 @@ impl Renderer {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
                     count: NonZero::new(1),
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,
@@ -439,7 +561,7 @@ impl Renderer {
             let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: None,
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &self.render_texture_view,
+                    view: &self.ray_marching_texture_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
@@ -452,6 +574,25 @@ impl Renderer {
             });
             rpass.set_pipeline(&self.ray_marching_pipeline);
             rpass.set_bind_group(0, Some(&self.ray_marching_bind_group), &[]);
+            rpass.draw(0..4, 0..1);
+        }
+        {
+            let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: None,
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &self.depth_texture_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+            rpass.set_pipeline(&self.depth_pipeline);
+            rpass.set_bind_group(0, Some(&self.depth_bind_group), &[]);
             rpass.draw(0..4, 0..1);
         }
         {

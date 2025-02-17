@@ -16,7 +16,7 @@ impl Default for Editor {
 	/// A default editor/document.
 	fn default() -> Self {
 		Editor {
-			sculpt: Sculpt::new(128),
+			sculpt: Sculpt::new(256),
 			current_brush: 0,
 			brushes: vec![
 				Brush::new("Round Brush".to_owned(), Box::new(RoundBrushTip::new())),
