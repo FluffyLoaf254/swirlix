@@ -11,21 +11,29 @@ use std::rc::{Weak, Rc};
 /// information.
 pub struct Sculpt {
 	root: SculptNode,
+	density: u32,
 	palette: Rc<RefCell<SculptPalette>>,
-	min_leaf_size: f32,
 }
 
 impl Sculpt {
 	/// Creates a new sculpt object.
-	pub fn new() -> Self {
+	pub fn new(density: u32) -> Self {
 		let palette = SculptPalette::new();
 		let material = palette.first();
 		let palette_ref = Rc::new(RefCell::new(palette));
 		Self {
 			root: SculptNode::new(Rc::downgrade(&palette_ref), material, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 }),
 			palette: palette_ref,
-			min_leaf_size: 0.001,
+			density: density,
 		}
+	}
+
+	pub fn get_density(&self) -> u32 {
+		self.density
+	}
+
+	fn min_leaf_size(&self) -> f32 {
+		1.0 / (self.density as f32)
 	}
 
 	/// Gets the raw data for the voxel buffer.
@@ -42,7 +50,7 @@ impl Sculpt {
 	pub fn subdivide(&mut self, fill: Material, is_filled: Box<dyn Fn(f32, Point) -> bool>, is_contained: Box<dyn Fn(f32, Point) -> bool>) {
 		self.palette.borrow_mut().push(fill);
 		let material = self.palette.borrow().get(fill);
-		self.root.subdivide(material.clone(), &is_filled, &is_contained, self.min_leaf_size);
+		self.root.subdivide(material.clone(), &is_filled, &is_contained, self.min_leaf_size());
 		self.root.set_child_count();
 	}
 
@@ -50,7 +58,7 @@ impl Sculpt {
 	pub fn unsubdivide(&mut self, fill: Material, is_filled: Box<dyn Fn(f32, Point) -> bool>, is_contained: Box<dyn Fn(f32, Point) -> bool>) {
 		self.palette.borrow_mut().push(fill);
 		let material = self.palette.borrow().get(fill);
-		self.root.unsubdivide(material.clone(), &is_filled, &is_contained, self.min_leaf_size);
+		self.root.unsubdivide(material.clone(), &is_filled, &is_contained, self.min_leaf_size());
 		self.root.set_child_count();
 	}
 }
@@ -495,7 +503,7 @@ mod tests {
 
     #[test]
     fn subdivide_creates_all_root_children_with_sphere_brush_at_center() {
-    	let mut sculpt = Sculpt::new();
+    	let mut sculpt = Sculpt::new(128);
 
     	let material = Material {
     		color: [255, 0, 0, 255],

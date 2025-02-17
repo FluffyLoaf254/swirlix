@@ -37,10 +37,12 @@ impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_none() {
             let version = env!("CARGO_PKG_VERSION");
-            let win_attr = Window::default_attributes().with_title(format!("Swirlix {version}")).with_inner_size(PhysicalSize {
-                width: 1000,
-                height: 1000,
-            });
+            let win_attr = Window::default_attributes()
+                .with_title(format!("Swirlix {version}"))
+                .with_inner_size(PhysicalSize {
+                    width: 1000,
+                    height: 1000,
+                });
             // use Arc
             let window = Arc::new(
                 event_loop
@@ -48,7 +50,7 @@ impl ApplicationHandler for App {
                     .expect("Could not create the window."),
             );
             self.window = Some(window.clone());
-            let context = Renderer::new(window.clone());
+            let context = Renderer::new(window.clone(), self.editor.get_sculpt_density());
             self.context = Some(context);
         }
     }

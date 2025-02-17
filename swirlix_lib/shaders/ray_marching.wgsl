@@ -28,15 +28,15 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
     return VertexOutput(vec4<f32>(x, y, 0.0, 1.0), vec2<f32>(u, v));
 }
 
+const dimensions = 128.0;
+
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let ray_origin = vec3<f32>(input.uv, 0.0); // multiply by world matrix
     let ray_direction = vec3<f32>(0.0, 0.0, 1.0); // multiply by world matrix
     
-    const max_steps = 32u;
-    const minimum_distance = 0.0;
+    const max_steps = 64u;
     const maximum_distance = 1.0;
-    const smallest_voxel_size = 0.001;
 
     var ray_distance = 0.0;
 
@@ -49,11 +49,11 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
             break;
         }
 
-        if (closest.distance <= minimum_distance) {
+        if (closest.distance <= (1.0 / dimensions)) {
             return vec4<f32>(1.0, 0.0, 0.0, voxel_distance(ray_origin, closest.center, closest.size / 2.0));
         }
 
-        ray_distance += max(closest.distance, smallest_voxel_size);
+        ray_distance += max(closest.distance, 1.0 / dimensions);
 
         if (ray_distance > maximum_distance) {
             break;
@@ -64,7 +64,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 
 fn hit_voxel(position: vec3<f32>) -> VoxelHit {
-    const max_steps = 32u;
+    const max_steps = 64u;
 
     var minimum_distance = 100.0;
     var level = 0u;
@@ -72,7 +72,7 @@ fn hit_voxel(position: vec3<f32>) -> VoxelHit {
     var result = VoxelHit(false, 0u, 0.0, vec3<f32>(0.5, 0.5, 0.5), 1.0, 0u, 0u);
     var next = result;
 
-    var visited = array<VoxelHit, 32>();
+    var visited = array<VoxelHit, 64>();
 
     visited[level] = next;
 
@@ -90,9 +90,12 @@ fn hit_voxel(position: vec3<f32>) -> VoxelHit {
         next.visited = (next.visited | hit.child_value);
 
         if (hit.hit) { // is a leaf
-            if (hit.distance <= minimum_distance) {
+            if (hit.distance < minimum_distance) {
                 result = hit;
                 minimum_distance = hit.distance;
+                if (hit.distance <= (1.0 / dimensions)) {
+                    break;
+                }
             }
         } else { // not a leaf, go down a level
             level += 1u;
@@ -118,6 +121,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
 
     var hit = parent;
     var child_offset = 0u;
+    var child_mask = 0u;
 
     for (var child = 0u; child < 8u; child += 1u) {
         let child_value = (1u << child);
@@ -149,9 +153,15 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         
         let child_distance = voxel_distance(position, child_center, quarter_voxel_size);
 
-        if (child_distance <= minimum_distance) {
+        let is_leaf = ((leaves & child_value) != 0u);
+
+        if (child_distance < minimum_distance) {
             minimum_distance = child_distance;
-            hit = VoxelHit((leaves & child_value) != 0u, next_pointer + child_offset * 2u, child_distance, child_center, half_voxel_size, 0u, child_value);
+            hit = VoxelHit(is_leaf, next_pointer + child_offset * 2u, child_distance, child_center, half_voxel_size, 0u, child_mask | child_value);
+        }
+
+        if (is_leaf) {
+            child_mask = (child_mask | child_value);
         }
 
         child_offset += 1u;
@@ -161,13 +171,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
 }
 
 fn voxel_distance(point: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32 {
-    let x = max(point.x - center.x - half_size, center.x - point.x - half_size);
-    let y = max(point.y - center.y - half_size, center.y - point.y - half_size);
-    let z = max(point.z - center.z - half_size, center.z - point.z - half_size);
+    let shifted = abs((point - center) / half_size);
 
-    var distance = x;
-    distance = max(distance, y);
-    distance = max(distance, z);
-
-    return max(0.0, distance);
+    return sqrt(pow(max(0.0, shifted.x - 1.0), 2.0) + pow(max(0.0, shifted.y - 1.0), 2.0) + pow(max(0.0, shifted.z - 1.0), 2.0)) * half_size;
 }

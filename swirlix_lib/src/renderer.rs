@@ -6,6 +6,7 @@ use winit::window::Window;
 
 /// Handle rendering with wgpu.
 pub struct Renderer {
+    pixels: u32,
     adapter: wgpu::Adapter,
     window: Arc<Window>,
     device: wgpu::Device,
@@ -28,7 +29,7 @@ pub struct Renderer {
 impl Renderer {
     /// Create a new context asynchronously (which will be resolved synchronously with pollster).
     /// Requesting an adapter and device should not take very long, so this is OK.
-    pub async fn new_async(window: Arc<Window>) -> Renderer {
+    pub async fn new_async(window: Arc<Window>, pixels: u32) -> Renderer {
         let instance = wgpu::Instance::default();
         let surface = instance.create_surface(Arc::clone(&window)).unwrap();
         let adapter = instance
@@ -72,8 +73,8 @@ impl Renderer {
             mip_level_count: 1,
             sample_count: 1,
             size: wgpu::Extent3d {
-                width: 1000,
-                height: 1000,
+                width: pixels,
+                height: pixels,
                 depth_or_array_layers: 1,
             },
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -99,8 +100,8 @@ impl Renderer {
             mip_level_count: 1,
             sample_count: 1,
             size: wgpu::Extent3d {
-                width: 1000,
-                height: 1000,
+                width: pixels,
+                height: pixels,
                 depth_or_array_layers: 1,
             },
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -151,8 +152,8 @@ impl Renderer {
         });
 
         let shading_sampler = device.create_sampler(&wgpu::SamplerDescriptor{
-              mag_filter: wgpu::FilterMode::Linear,
-              min_filter: wgpu::FilterMode::Linear,
+              mag_filter: wgpu::FilterMode::Nearest,
+              min_filter: wgpu::FilterMode::Nearest,
               ..Default::default()
         });
 
@@ -172,8 +173,8 @@ impl Renderer {
           });
 
         let render_sampler = device.create_sampler(&wgpu::SamplerDescriptor{
-              mag_filter: wgpu::FilterMode::Linear,
-              min_filter: wgpu::FilterMode::Linear,
+              mag_filter: wgpu::FilterMode::Nearest,
+              min_filter: wgpu::FilterMode::Nearest,
               ..Default::default()
         });
 
@@ -193,6 +194,7 @@ impl Renderer {
           });
 
         Renderer {
+            pixels,
             surface,
             surface_config,
             adapter,
@@ -235,7 +237,7 @@ impl Renderer {
                             read_only: true,
                         },
                         has_dynamic_offset: false,
-                        min_binding_size: NonZero::new(65536 * 4),
+                        min_binding_size: NonZero::new(134217728),
                     }
                 }
             ],
@@ -290,14 +292,14 @@ impl Renderer {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
                     count: NonZero::new(1),
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,
@@ -354,14 +356,14 @@ impl Renderer {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
                     count: NonZero::new(1),
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
                 },
                 wgpu::BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
-                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
                         view_dimension: wgpu::TextureViewDimension::D2,
                     },
                     count: None,
@@ -404,8 +406,8 @@ impl Renderer {
     }
 
     /// Create a context, using pollster to keep it synchronous.
-    pub fn new(window: Arc<Window>) -> Renderer {
-        pollster::block_on(Renderer::new_async(window))
+    pub fn new(window: Arc<Window>, pixels: u32) -> Renderer {
+        pollster::block_on(Renderer::new_async(window, pixels))
     }
 
     /// Update context to match a new size of the window.

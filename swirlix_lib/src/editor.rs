@@ -16,7 +16,7 @@ impl Default for Editor {
 	/// A default editor/document.
 	fn default() -> Self {
 		Editor {
-			sculpt: Sculpt::new(),
+			sculpt: Sculpt::new(128),
 			current_brush: 0,
 			brushes: vec![
 				Brush::new("Round Brush".to_owned(), Box::new(RoundBrushTip::new())),
@@ -27,6 +27,10 @@ impl Default for Editor {
 }
 
 impl Editor {
+	pub fn get_sculpt_density(&self) -> u32 {
+		self.sculpt.get_density()
+	}
+
 	/// Set the brush type.
 	pub fn set_brush(&mut self, brush: usize) {
 		self.current_brush = brush.clamp(0, self.brushes.len());
