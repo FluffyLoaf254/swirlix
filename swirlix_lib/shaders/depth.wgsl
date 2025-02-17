@@ -22,37 +22,30 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 const dimensions = 256.0;
 
 @fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    let sample = textureSample(render_texture, render_sampler, input.uv);
+    let initial = textureSample(render_texture, render_sampler, input.uv);
 
     const allowed = (8.0 / dimensions);
-    const epsilon = 1;
+    const delta = 8;
 
     let p = vec2<i32>(i32(input.uv.x * dimensions), i32(input.uv.y * dimensions));
-    let fx0 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(epsilon, 0))).w;
-    let fx1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(epsilon, 0))).w;
-    let fy0 = textureSample(render_texture, render_sampler, get_uv(p - vec2<i32>(0, epsilon))).w;
-    let fy1 = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(0, epsilon))).w;
 
-    var minimum = sample.w;
-    var maximum = sample.w;
-    if (abs(fx0 - sample.w) < allowed) {
-        minimum = min(minimum, fx0);
-        maximum = max(maximum, fx0);
-    }
-    if (abs(fx1 - sample.w) < allowed) {
-        minimum = min(minimum, fx1);
-        maximum = max(maximum, fx1);
-    }
-    if (abs(fy0 - sample.w) < allowed) {
-        minimum = min(minimum, fy0);
-        maximum = max(maximum, fy0);
-    }
-    if (abs(fy1 - sample.w) < allowed) {
-        minimum = min(minimum, fy1);
-        maximum = max(maximum, fy1);
+    var minimum = initial.w;
+    var maximum = initial.w;
+
+    for (var x = -delta; x <= delta; x++) {
+        for (var y = -delta; y <= delta; y++) {
+            if (x == 0 && y == 0) {
+                continue;
+            }
+            let depth = textureSample(render_texture, render_sampler, get_uv(p + vec2<i32>(x, y))).w;
+            if (abs(depth - initial.w) <= allowed) {
+                minimum = min(minimum, depth);
+                maximum = max(maximum, depth);
+            }   
+        }
     }
 
-    return vec4<f32>(sample.rgb, (maximum + minimum) / 2.0);
+    return vec4<f32>(initial.rgb, (maximum + minimum) / 2.0);
 }
 
 fn get_uv(pixel: vec2<i32>) -> vec2<f32> {
