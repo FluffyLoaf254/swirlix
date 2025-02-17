@@ -47,7 +47,7 @@ fn simple_blinn_phong(color: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
 }
 
 fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
-    const delta = (4.0 / dimensions);
+    const delta = (1.0 / dimensions);
 
     let c0 = textureSample(render_texture, render_sampler, uv).w;
     let l1 = textureSample(render_texture, render_sampler, uv - vec2<f32>(delta, 0.0)).w;
