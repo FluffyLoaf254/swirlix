@@ -22,7 +22,7 @@ To run the project, first make sure you have Rust installed.
 Then, clone the project and change into that directory:
 
 ```bash
-clone git@github.com:FluffyLoaf254/swirlix.git
+git clone git@github.com:FluffyLoaf254/swirlix.git
 cd swirlix
 ```
 
@@ -40,6 +40,6 @@ cargo test --workspace
 
 ## Guide
 
-Left click will add voxels under the cursor, while right click deletes voxels.
+Left clicking will add voxels under the cursor, while right clicking deletes voxels.
 
 Pressing "S" will switch to the square brush and pressing "R" will switch back to the round brush.
