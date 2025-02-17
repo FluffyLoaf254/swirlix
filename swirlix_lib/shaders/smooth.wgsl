@@ -21,17 +21,18 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 
 const dimensions = 256.0;
 
-@fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
+@fragment
+fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let initial = textureSample(render_texture, render_sampler, input.uv);
 
-    const delta = 6.0;
+    const delta = 4.0;
 
     var maximum = initial.w;
     var minimum = initial.w;
 
     for (var x = -delta; x <= delta; x += 1.0) {
         for (var y = -delta; y <= delta; y += 1.0) {
-            let allowed = (delta / dimensions);
+            let allowed = (max(abs(x) + 1.0, abs(y) + 1.0) / dimensions);
             let uv = vec2<f32>(input.uv.x + (x / dimensions), input.uv.y + (y / dimensions));
 
             let depth = textureSample(render_texture, render_sampler, uv).w;

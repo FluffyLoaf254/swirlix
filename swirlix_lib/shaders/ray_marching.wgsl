@@ -17,8 +17,6 @@ struct VoxelHit {
     child_value: u32,
 }
 
-@group(0) @binding(0) var<storage, read> voxels: array<u32>;
-
 @vertex
 fn vertex_main(input: VertexInput) -> VertexOutput {
     let x = f32(i32(input.index & 1u) * 2 - 1);
@@ -27,6 +25,8 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
     let v = 1.0 - (y / 2.0 + 0.5);
     return VertexOutput(vec4<f32>(x, y, 0.0, 1.0), vec2<f32>(u, v));
 }
+
+@group(0) @binding(0) var<storage, read> voxels: array<u32>;
 
 const dimensions = 256.0;
 const hit_distance = 0.005;

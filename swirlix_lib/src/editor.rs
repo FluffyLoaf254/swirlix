@@ -27,6 +27,7 @@ impl Default for Editor {
 }
 
 impl Editor {
+	/// Get the density of the sculpt in voxels per axis.
 	pub fn get_sculpt_density(&self) -> u32 {
 		self.sculpt.get_density()
 	}

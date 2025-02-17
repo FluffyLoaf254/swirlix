@@ -19,6 +19,7 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 @group(0) @binding(0) var render_sampler: sampler;
 @group(0) @binding(1) var render_texture: texture_2d<f32>;
 
-@fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
+@fragment
+fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     return textureSample(render_texture, render_sampler, input.uv);
 }

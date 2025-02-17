@@ -28,10 +28,12 @@ impl Sculpt {
 		}
 	}
 
+	/// Retrieve the set density.
 	pub fn get_density(&self) -> u32 {
 		self.density
 	}
 
+	/// Get the minimum voxel leaf node size.
 	fn min_leaf_size(&self) -> f32 {
 		1.0 / (self.density as f32)
 	}

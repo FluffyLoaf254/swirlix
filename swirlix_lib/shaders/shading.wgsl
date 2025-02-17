@@ -21,7 +21,8 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 
 const dimensions = 256.0;
 
-@fragment fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
+@fragment
+fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let sample = textureSample(render_texture, render_sampler, input.uv);
 
     if (sample.a >= 1.0) {
@@ -31,18 +32,32 @@ const dimensions = 256.0;
     return simple_blinn_phong(sample.rgb, compute_normal(input.uv));
 }
 
+fn simple_blinn_phong(color: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
+    const specular_power = 2.0;
+    const gloss = 0.95;
+
+    let light_direction = normalize(vec3<f32>(0.8, 0.8, 1.0));
+    let light_color = vec3<f32>(1.0, 1.0, 1.0);
+    let n_dot_l = max(dot(normal, light_direction), 0.0);
+    let view_direction = vec3<f32>(0.0, 0.0, 1.0); // set this based on camera
+    let h = (light_direction - view_direction) / 2.;
+    let specular = pow(dot(normal, h), specular_power) * gloss;
+
+    return vec4<f32>(color * light_color * n_dot_l, 1.0) + specular;
+}
+
 fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
-    const delta = (2.0 / dimensions);
+    const delta = (4.0 / dimensions);
 
     let c0 = textureSample(render_texture, render_sampler, uv).w;
     let l1 = textureSample(render_texture, render_sampler, uv - vec2<f32>(delta, 0.0)).w;
-    let l2 = textureSample(render_texture, render_sampler, uv - vec2<f32>(delta * 2, 0.0)).w;
+    let l2 = textureSample(render_texture, render_sampler, uv - vec2<f32>(delta * 2.0, 0.0)).w;
     let r1 = textureSample(render_texture, render_sampler, uv + vec2<f32>(delta, 0.0)).w;
-    let r2 = textureSample(render_texture, render_sampler, uv + vec2<f32>(delta * 2, 0.0)).w;
+    let r2 = textureSample(render_texture, render_sampler, uv + vec2<f32>(delta * 2.0, 0.0)).w;
     let b1 = textureSample(render_texture, render_sampler, uv - vec2<f32>(0.0, delta)).w;
-    let b2 = textureSample(render_texture, render_sampler, uv - vec2<f32>(0.0, delta * 2)).w;
+    let b2 = textureSample(render_texture, render_sampler, uv - vec2<f32>(0.0, delta * 2.0)).w;
     let t1 = textureSample(render_texture, render_sampler, uv + vec2<f32>(0.0, delta)).w;
-    let t2 = textureSample(render_texture, render_sampler, uv + vec2<f32>(0.0, delta * 2)).w;
+    let t2 = textureSample(render_texture, render_sampler, uv + vec2<f32>(0.0, delta * 2.0)).w;
     
     let dl = abs((l1 * l2) / (2.0 * l2 - l1) - c0);
     let dr = abs((r1 * r2) / (2.0 * r2 - r1) - c0);
@@ -71,18 +86,4 @@ fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
 fn get_world_pos(uv: vec2<f32>, depth: f32) -> vec3<f32>
 {
     return vec3<f32>(uv.x, uv.y, depth);
-}
-
-fn simple_blinn_phong(color: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
-    const specular_power = 2.0;
-    const gloss = 0.7;
-
-    let light_direction = normalize(vec3<f32>(0.8, 0.8, 1.0));
-    let light_color = vec3<f32>(1.0, 1.0, 1.0);
-    let n_dot_l = max(dot(normal, light_direction), 0.0);
-    let view_direction = vec3<f32>(0.0, 0.0, 1.0); // set this based on camera
-    let h = (light_direction - view_direction) / 2.;
-    let specular = pow(dot(normal, h), specular_power) * gloss;
-
-    return vec4<f32>(color * light_color * n_dot_l, 1.0) + specular;
 }
