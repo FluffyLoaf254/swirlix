@@ -212,7 +212,8 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         if (hit.normal.x == 0.0 && hit.normal.y == 0.0 && hit.normal.z == 0.0) {
             hit.normal = voxel_normal;
         } else {
-            hit.normal = normalize((hit.normal + voxel_normal) / 2.0);
+            let coefficient = (1.0 - half_voxel_size) * 4.0;
+            hit.normal = hit.normal + voxel_normal * clamp(coefficient, 0.25, 2.0);
         }
     }
 
