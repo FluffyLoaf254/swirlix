@@ -6,14 +6,13 @@ A simple, performant voxel sculpting tool made with Rust.
 
 ## Status
 
-I've just started this project, and a lot of features are missing or unoptimized.
+A lot of features are missing or incomplete.
 
 ## Implementation
 
 - Sparse Voxel Octree data structure
-- Ray Marching for depth and color
-- Normal map generation from depth
-- Physically-Based Rendering shader
+- Ray Marching for color and normal
+- Simple Blinn-Phong rendering
 
 ## Try it Out
 

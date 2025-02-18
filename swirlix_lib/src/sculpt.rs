@@ -56,7 +56,7 @@ impl Sculpt {
 		self.root.set_child_count();
 	}
 
-	/// Subdivides space to fill the sculpt.
+	/// Remove voxels from the sculpt.
 	pub fn unsubdivide(&mut self, fill: Material, is_filled: Box<dyn Fn(f32, Point) -> bool>, is_contained: Box<dyn Fn(f32, Point) -> bool>) {
 		self.palette.borrow_mut().push(fill);
 		let material = self.palette.borrow().get(fill);
@@ -99,8 +99,6 @@ impl SculptNode {
 	}
 
 	/// Handles the sparse voxel octree subdividing modifications, recursively.
-	///
-	/// Returns whether or not the result is a leaf.
 	fn subdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32, invert: bool) {
 		if !invert && self.kind == SculptNodeKind::Leaf {
 			return;
@@ -210,8 +208,6 @@ impl SculptNode {
 	}
 
 	/// Handles the sparse voxel octree unsubdividing modifications, recursively.
-	///
-	/// Returns whether or not the result is gone.
 	fn unsubdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32) {
 		if !is_filled(self.size, self.center) {
 			return;
