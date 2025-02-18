@@ -36,7 +36,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let ray_origin = vec3<f32>(input.uv, 0.0); // multiply by world matrix
     let ray_direction = vec3<f32>(0.0, 0.0, 1.0); // multiply by world matrix
     
-    const max_steps = 32u;
+    const max_steps = 12u;
     const maximum_distance = 1.0;
 
     var ray_distance = 0.0;
@@ -75,7 +75,7 @@ fn hit_root(position: vec3<f32>) -> VoxelHit {
 }
 
 fn hit_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
-    const max_steps = 64u;
+    const max_steps = 32u;
 
     var minimum_distance = 100.0;
     var level = 0u;
@@ -83,7 +83,7 @@ fn hit_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
     var result = parent;
     var next = parent;
 
-    var visited = array<VoxelHit, 12>();
+    var visited = array<VoxelHit, 32>();
 
     visited[level] = next;
 
