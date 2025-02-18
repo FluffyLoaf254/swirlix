@@ -174,26 +174,27 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
             continue;
         }
 
-        if ((parent.visited & child_value) != 0u) {
-            child_offset += 1u;
-            continue;
-        }
-        
-        let child_distance = voxel_distance(position, child_center, quarter_voxel_size);
-
         let is_leaf = ((leaves & child_value) != 0u);
+        
+        if ((parent.visited & child_value) == 0u) { // not visited yet
+            let child_distance = voxel_distance(position, child_center, quarter_voxel_size);
 
-        if (child_distance < minimum_distance) {
-            minimum_distance = child_distance;
+            if (child_distance < minimum_distance) {
+                minimum_distance = child_distance;
 
-            hit = VoxelHit(is_leaf, next_pointer + child_offset * 2u, child_distance, child_center, half_voxel_size, 0u, child_mask | child_value, parent.normal);
+                hit = VoxelHit(is_leaf, next_pointer + child_offset, child_distance, child_center, half_voxel_size, 0u, child_mask | child_value, parent.normal);
+            }
+
+            if (is_leaf) {
+                child_mask = (child_mask | child_value);
+            }
         }
 
         if (is_leaf) {
-            child_mask = (child_mask | child_value);
+            child_offset += 1u;
+        } else {
+            child_offset += 2u;
         }
-
-        child_offset += 1u;
     }
 
     if (parent.normal.x == 0.0 && parent.normal.y == 0.0 && parent.normal.z == 0.0) {
