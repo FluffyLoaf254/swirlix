@@ -199,7 +199,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
     if (parent.normal.x == 0.0 && parent.normal.y == 0.0 && parent.normal.z == 0.0) {
         hit.normal = voxel_normal;
     } else {
-        hit.normal = mix(parent.normal, voxel_normal, mix(0.5, 0.75, hit.size));
+        hit.normal = mix(parent.normal, voxel_normal, mix(0.45, 0.75, hit.size));
     }
 
     return hit;

@@ -6,13 +6,13 @@ use winit::window::Window;
 
 /// Handle rendering with wgpu.
 pub struct Renderer {
-    pixels: u32,
     adapter: wgpu::Adapter,
     window: Arc<Window>,
     surface_config: wgpu::SurfaceConfiguration,
     surface: wgpu::Surface<'static>,
     device: wgpu::Device,
     queue: wgpu::Queue,
+    resolution: u32,
     voxel_buffer: wgpu::Buffer,
     ray_marching_pipeline: wgpu::RenderPipeline,
     ray_marching_bind_group: wgpu::BindGroup,
@@ -25,7 +25,7 @@ pub struct Renderer {
 impl Renderer {
     /// Create a new context asynchronously (which will be resolved synchronously with pollster).
     /// Requesting an adapter and device should not take very long, so this is OK.
-    pub async fn new_async(window: Arc<Window>, pixels: u32) -> Renderer {
+    pub async fn new_async(window: Arc<Window>, resolution: u32) -> Renderer {
         let instance = wgpu::Instance::default();
         let surface = instance.create_surface(Arc::clone(&window)).unwrap();
         let adapter = instance
@@ -69,8 +69,8 @@ impl Renderer {
             mip_level_count: 1,
             sample_count: 1,
             size: wgpu::Extent3d {
-                width: pixels,
-                height: pixels,
+                width: resolution,
+                height: resolution,
                 depth_or_array_layers: 1,
             },
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -140,7 +140,7 @@ impl Renderer {
         });
 
         Renderer {
-            pixels,
+            resolution,
             surface,
             surface_config,
             adapter,
@@ -284,8 +284,8 @@ impl Renderer {
     }
 
     /// Create a context, using pollster to keep it synchronous.
-    pub fn new(window: Arc<Window>, pixels: u32) -> Renderer {
-        pollster::block_on(Renderer::new_async(window, pixels))
+    pub fn new(window: Arc<Window>, resolution: u32) -> Renderer {
+        pollster::block_on(Renderer::new_async(window, resolution))
     }
 
     /// Update context to match a new size of the window.

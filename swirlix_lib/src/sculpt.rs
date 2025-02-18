@@ -11,31 +11,31 @@ use std::rc::{Weak, Rc};
 /// information.
 pub struct Sculpt {
 	root: SculptNode,
-	density: u32,
+	resolution: u32,
 	palette: Rc<RefCell<SculptPalette>>,
 }
 
 impl Sculpt {
 	/// Creates a new sculpt object.
-	pub fn new(density: u32) -> Self {
+	pub fn new(resolution: u32) -> Self {
 		let palette = SculptPalette::new();
 		let material = palette.first();
 		let palette_ref = Rc::new(RefCell::new(palette));
 		Self {
 			root: SculptNode::new(Rc::downgrade(&palette_ref), material, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 }),
 			palette: palette_ref,
-			density: density,
+			resolution: resolution,
 		}
 	}
 
-	/// Retrieve the set density.
-	pub fn get_density(&self) -> u32 {
-		self.density
+	/// Retrieve the set resolution.
+	pub fn get_resolution(&self) -> u32 {
+		self.resolution
 	}
 
 	/// Get the minimum voxel leaf node size.
 	fn min_leaf_size(&self) -> f32 {
-		1.0 / (self.density as f32)
+		1.0 / (self.resolution as f32)
 	}
 
 	/// Gets the raw data for the voxel buffer.
@@ -65,6 +65,14 @@ impl Sculpt {
 	}
 }
 
+/// The classification of a sculpt node.
+#[derive(PartialEq, Eq)]
+enum SculptNodeKind {
+	Leaf,
+	Interior,
+	None,
+}
+
 /// A node/voxel in the sparse voxel octree.
 struct SculptNode {
 	palette: Weak<RefCell<SculptPalette>>,
@@ -73,7 +81,7 @@ struct SculptNode {
 	center: Point,
 	size: f32,
 	child_count: u32,
-	is_subdivided: bool,
+	kind: SculptNodeKind,
 }
 
 impl SculptNode {
@@ -86,22 +94,23 @@ impl SculptNode {
 			size,
 			center,
 			child_count: 0,
-			is_subdivided: false,
+			kind: SculptNodeKind::None,
 		}
 	}
 
 	/// Handles the sparse voxel octree subdividing modifications, recursively.
 	///
 	/// Returns whether or not the result is a leaf.
-	fn subdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32, invert: bool) -> bool {
-		if !invert && self.is_subdivided && !self.children.iter().any(|child| child.is_some()) {
-			return true;
+	fn subdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32, invert: bool) {
+		if !invert && self.kind == SculptNodeKind::Leaf {
+			return;
 		}
-		self.is_subdivided = true;
 		
 		if self.size <= min_leaf_size || (is_contained(self.size, self.center) == !invert) {
 			self.children = [None, None, None, None, None, None, None, None];
-			return true;
+			self.kind = SculptNodeKind::Leaf;
+
+			return;
 		}
 
 		let half_size = self.size / 2.0;
@@ -184,8 +193,8 @@ impl SculptNode {
 
 		for index in 0..self.children.len() {
 			if let Some(ref mut child) = self.children[index] {
-				let leaf = child.subdivide(fill.clone(), &is_filled, &is_contained, min_leaf_size, invert);
-				all_leaves = all_leaves && leaf;
+				child.subdivide(fill.clone(), &is_filled, &is_contained, min_leaf_size, invert);
+				all_leaves = all_leaves && (child.kind == SculptNodeKind::Leaf);
 			} else {
 				all_leaves = false;
 			}
@@ -193,27 +202,29 @@ impl SculptNode {
 
 		if all_leaves {
 			self.children = [None, None, None, None, None, None, None, None];
-		}
 
-		return !self.children.iter().any(|child| child.is_some());
+			self.kind = SculptNodeKind::Leaf;
+		} else if self.children.iter().any(|child| child.is_some()) {
+			self.kind = SculptNodeKind::Interior;
+		}
 	}
 
 	/// Handles the sparse voxel octree unsubdividing modifications, recursively.
 	///
 	/// Returns whether or not the result is gone.
-	fn unsubdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32) -> bool {
+	fn unsubdivide(&mut self, fill: Rc<Material>, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32) {
 		if !is_filled(self.size, self.center) {
-			return false;
-		}
-		if !self.is_subdivided || is_contained(self.size, self.center) {
-			return true;
+			return;
 		}
 
 		let mut removed_all = self.children.iter().any(|child| child.is_some());
 		for index in 0..self.children.len() {
 			let mut should_remove = false;
 			if let Some(ref mut child) = self.children[index] {
-				should_remove = child.unsubdivide(fill.clone(), &is_filled, &is_contained, min_leaf_size);
+				child.unsubdivide(fill.clone(), &is_filled, &is_contained, min_leaf_size);
+				if (child.kind == SculptNodeKind::None) || is_contained(child.size, child.center) {
+					should_remove = true;
+				}
 				removed_all = removed_all && should_remove;
 			}
 			if should_remove {
@@ -222,22 +233,24 @@ impl SculptNode {
 		}
 
 		if removed_all {
-			self.is_subdivided = false;
-			return true;
+			self.kind = SculptNodeKind::None;
+
+			return;
 		}
 
 		// If it isn't a leaf, return
 		if self.children.iter().any(|child| child.is_some()) {
-			return false;
+			self.kind = SculptNodeKind::Interior;
+
+			return;
 		}
 
 		self.subdivide(fill.clone(), &is_filled, &is_contained, min_leaf_size, true);
 
 		if !self.children.iter().any(|child| child.is_some()) {
-			self.is_subdivided = false;
-			true
+			self.kind = SculptNodeKind::None;
 		} else {
-			false
+			self.kind = SculptNodeKind::Interior;
 		}
 	}
 
@@ -268,23 +281,10 @@ impl SculptNode {
 
 		self.append_to_buffer(&mut buffer, 1);
 
-		// self.print_buffer(&buffer);
-
 		let length = buffer.len();
 		println!("{length}");
 
 		buffer
-	}
-
-	/// Print the buffer for debug purposes - PLEASE IMPLEMENT ACTUAL DEBUG PRINTING!!!
-	fn print_buffer(&self, buffer: &Vec<u32>) {
-		for index in 0..buffer.len() {
-			let pointer = buffer[index] >> 16;
-			let child_mask = ((buffer[index] >> 8) & 255) as u8;
-			let leaf_mask = (buffer[index] & 255) as u8;
-
-			println!("{index}: pointer: {pointer}, child: {child_mask:08b}, leaf: {leaf_mask:08b}");
-		}
 	}
 
 	/// Convert a node to an integer to send to the GPU.
