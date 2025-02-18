@@ -42,7 +42,7 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 @group(0) @binding(1) var<storage, read> voxels: array<u32>;
 @group(0) @binding(2) var<storage, read> materials: array<Material>;
 
-const hit_distance = 0.0;
+const hit_distance = 0.0005;
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
@@ -57,27 +57,27 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     for (var step = 0u; step < max_steps; step += 1u) {
         var position = ray_origin + ray_distance * ray_direction;
 
-        let closest = hit_root(ray_direction, position);
+        let closest = hit_root(position);
 
         if (!closest.hit) {
             break;
         }
 
         if (closest.distance <= hit_distance) {
-            return simple_blinn_phong(materials[closest.color].color, normalize(closest.normal));
+            return simple_blinn_phong(ray_direction, materials[closest.color].color, normalize(closest.normal));
         }
 
-        ray_distance += max(closest.distance, 1.0 / f32(settings.resolution));
+        ray_distance += max(closest.distance - hit_distance, 1.0 / f32(settings.resolution));
 
         if (ray_distance > maximum_distance) {
             break;
         }
     }
 
-    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    return vec4<f32>(0.03, 0.04, 0.06, 1.0);
 }
 
-fn hit_root(ray_direction: vec3<f32>, position: vec3<f32>) -> VoxelHit {
+fn hit_root(position: vec3<f32>) -> VoxelHit {
     let root = VoxelHit(false, 0u, 100.0, vec3<f32>(0.5, 0.5, 0.5), 1.0, 0u, 0u, 0u, vec3<f32>(0.0, 0.0, 0.0));
 
     var hit = hit_voxel(root, position);
@@ -144,8 +144,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
     var hit = parent;
     var child_offset = 0u;
     var child_mask = 0u;
-    var voxel_normal = vec3<f32>(0.0, 0.0, 0.0);
-    var first_normal = true;
+    var voxel_normal = parent.normal;
 
     for (var child = 0u; child < 8u; child += 1u) {
         let child_value = (1u << child);
@@ -175,13 +174,11 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         }
 
         if ((children & child_value) == 0u) {
-            if (first_normal) {
+            if (voxel_normal.x == 0.0 && voxel_normal.y == 0.0 && voxel_normal.z == 0.0) {
                 voxel_normal = normalize(child_normal);
             } else {
-                voxel_normal = mix(voxel_normal, normalize(child_normal), 0.5);
+                voxel_normal = normalize(mix(voxel_normal, normalize(child_normal), 0.5));
             }
-            voxel_normal = normalize(voxel_normal);
-            first_normal = false;
             continue;
         }
 
@@ -193,7 +190,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
             if (child_distance < minimum_distance) {
                 minimum_distance = child_distance;
 
-                hit = VoxelHit(is_leaf, next_pointer + child_offset, child_distance, child_center, half_voxel_size, 0u, child_mask | child_value, 0u, parent.normal);
+                hit = VoxelHit(is_leaf, next_pointer + child_offset, child_distance, child_center, half_voxel_size, 0u, child_mask | child_value, 0u, vec3<f32>(0.0, 0.0, 0.0));
             }
 
             if (is_leaf) {
@@ -208,11 +205,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         }
     }
 
-    if (parent.normal.x == 0.0 && parent.normal.y == 0.0 && parent.normal.z == 0.0) {
-        hit.normal = voxel_normal;
-    } else {
-        hit.normal = mix(parent.normal, voxel_normal, mix(0.55, 0.75, hit.size));
-    }
+    hit.normal = voxel_normal;
 
     return hit;
 }
@@ -223,15 +216,14 @@ fn voxel_distance(position: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32
     return sqrt(pow(max(0.0, shifted.x - 1.0), 2.0) + pow(max(0.0, shifted.y - 1.0), 2.0) + pow(max(0.0, shifted.z - 1.0), 2.0)) * half_size;
 }
 
-fn simple_blinn_phong(color: vec4<f32>, normal: vec3<f32>) -> vec4<f32> {
-    const specular_power = 2.0;
-    const gloss = 0.9;
+fn simple_blinn_phong(view_direction: vec3<f32>, color: vec4<f32>, normal: vec3<f32>) -> vec4<f32> {
+    const specular_power = 4.0;
+    const gloss = 5.0;
 
     let light_direction = normalize(vec3<f32>(0.8, 0.8, 1.0));
     let light_color = vec3<f32>(1.0, 1.0, 1.0);
     let n_dot_l = max(dot(normal, light_direction), 0.0);
-    let view_direction = vec3<f32>(0.0, 0.0, 1.0); // set this based on camera
-    let h = (light_direction - view_direction) / 2.;
+    let h = (light_direction - view_direction) / 2.0;
     let specular = pow(dot(normal, h), specular_power) * gloss;
 
     return vec4<f32>(color.rgb * light_color * n_dot_l, 1.0) + specular;
