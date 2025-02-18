@@ -15,6 +15,7 @@ struct VoxelHit {
     size: f32,
     visited: u32,
     child_value: u32,
+    normal: vec3<f32>,
 }
 
 @vertex
@@ -44,14 +45,15 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     for (var step = 0u; step < max_steps; step += 1u) {
         var position = ray_origin + ray_distance * ray_direction;
 
-        let closest = hit_root(position);
+        let closest = hit_root(ray_direction, position);
 
         if (!closest.hit) {
             break;
         }
 
         if (closest.distance <= hit_distance) {
-            return vec4<f32>(1.0, 0.0, 0.0, ray_distance + closest.distance);
+            return simple_blinn_phong(vec3<f32>(1.0, 0.0, 0.0), normalize(closest.normal));
+            // return vec4<f32>(closest.normal, 1.0);
         }
 
         ray_distance += max(closest.distance, 1.0 / dimensions);
@@ -64,8 +66,8 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 }
 
-fn hit_root(position: vec3<f32>) -> VoxelHit {
-    let root = VoxelHit(false, 0u, 100.0, vec3<f32>(0.5, 0.5, 0.5), 1.0, 0u, 0u);
+fn hit_root(ray_direction: vec3<f32>, position: vec3<f32>) -> VoxelHit {
+    let root = VoxelHit(false, 0u, 100.0, vec3<f32>(0.5, 0.5, 0.5), 1.0, 0u, 0u, vec3<f32>(0.0, 0.0, 0.0));
 
     var hit = hit_voxel(root, position);
 
@@ -73,7 +75,7 @@ fn hit_root(position: vec3<f32>) -> VoxelHit {
 }
 
 fn hit_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
-    const max_steps = 32u;
+    const max_steps = 64u;
 
     var minimum_distance = 100.0;
     var level = 0u;
@@ -81,7 +83,7 @@ fn hit_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
     var result = parent;
     var next = parent;
 
-    var visited = array<VoxelHit, 32>();
+    var visited = array<VoxelHit, 64>();
 
     visited[level] = next;
 
@@ -131,33 +133,50 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
     var hit = parent;
     var child_offset = 0u;
     var child_mask = 0u;
+    var voxel_normal = vec3<f32>(0.0, 0.0, 0.0);
+    var first_normal = true;
 
     for (var child = 0u; child < 8u; child += 1u) {
         let child_value = (1u << child);
+
+        var child_normal = vec3<f32>(0.0, 0.0, 0.0);
+        var child_center = parent.center;
+        if ((child_value & 85u) != 0u) { // left
+            child_center.x -= quarter_voxel_size;
+            child_normal.x += 1.0;
+        } else { // right
+            child_center.x += quarter_voxel_size;
+            child_normal.x -= 1.0;
+        }
+        if ((child_value & 51u) != 0u) { // back
+            child_center.y -= quarter_voxel_size;
+            child_normal.y += 1.0;
+        } else { // front
+            child_center.y += quarter_voxel_size;
+            child_normal.y -= 1.0;
+        }
+        if ((child_value & 15u) != 0u) { // top
+            child_center.z -= quarter_voxel_size;
+            child_normal.z += 1.0;
+        } else { // bottom
+            child_center.z += quarter_voxel_size;
+            child_normal.z -= 1.0;
+        }
+
         if ((children & child_value) == 0u) {
+            if (first_normal) {
+                voxel_normal = normalize(child_normal);
+            } else {
+                voxel_normal = mix(voxel_normal, normalize(child_normal), 0.5);
+            }
+            voxel_normal = normalize(voxel_normal);
+            first_normal = false;
             continue;
         }
 
         if ((parent.visited & child_value) != 0u) {
             child_offset += 1u;
             continue;
-        }
-
-        var child_center = parent.center;
-        if ((child_value & 85u) != 0u) { // left
-            child_center.x -= quarter_voxel_size;
-        } else { // right
-            child_center.x += quarter_voxel_size;
-        }
-        if ((child_value & 51u) != 0u) { // back
-            child_center.y -= quarter_voxel_size;
-        } else { // front
-            child_center.y += quarter_voxel_size;
-        }
-        if ((child_value & 15u) != 0u) { // top
-            child_center.z -= quarter_voxel_size;
-        } else { // bottom
-            child_center.z += quarter_voxel_size;
         }
         
         let child_distance = voxel_distance(position, child_center, quarter_voxel_size);
@@ -166,7 +185,8 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
 
         if (child_distance < minimum_distance) {
             minimum_distance = child_distance;
-            hit = VoxelHit(is_leaf, next_pointer + child_offset * 2u, child_distance, child_center, half_voxel_size, 0u, child_mask | child_value);
+
+            hit = VoxelHit(is_leaf, next_pointer + child_offset * 2u, child_distance, child_center, half_voxel_size, 0u, child_mask | child_value, parent.normal);
         }
 
         if (is_leaf) {
@@ -176,6 +196,12 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         child_offset += 1u;
     }
 
+    if (parent.normal.x == 0.0 && parent.normal.y == 0.0 && parent.normal.z == 0.0) {
+        hit.normal = voxel_normal;
+    } else {
+        hit.normal = mix(parent.normal, voxel_normal, mix(0.5, 0.75, hit.size));
+    }
+
     return hit;
 }
 
@@ -183,4 +209,18 @@ fn voxel_distance(position: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32
     let shifted = abs((position - center) / half_size);
 
     return sqrt(pow(max(0.0, shifted.x - 1.0), 2.0) + pow(max(0.0, shifted.y - 1.0), 2.0) + pow(max(0.0, shifted.z - 1.0), 2.0)) * half_size;
+}
+
+fn simple_blinn_phong(color: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
+    const specular_power = 2.0;
+    const gloss = 0.95;
+
+    let light_direction = normalize(vec3<f32>(0.8, 0.8, 1.0));
+    let light_color = vec3<f32>(1.0, 1.0, 1.0);
+    let n_dot_l = max(dot(normal, light_direction), 0.0);
+    let view_direction = vec3<f32>(0.0, 0.0, 1.0); // set this based on camera
+    let h = (light_direction - view_direction) / 2.;
+    let specular = pow(dot(normal, h), specular_power) * gloss;
+
+    return vec4<f32>(color * light_color * n_dot_l, 1.0) + specular;
 }
