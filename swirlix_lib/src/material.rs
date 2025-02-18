@@ -28,7 +28,7 @@ impl Default for Material {
 	fn default() -> Self {
 		Self  {
 			index: 0,
-			color: [0.8, 0.8, 0.8, 1.0],
+			color: [0.5, 0.5, 0.5, 1.0],
 			roughness: 0.5,
 			metallic: 0.0,
 		}

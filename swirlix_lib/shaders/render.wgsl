@@ -21,5 +21,7 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(render_texture, render_sampler, input.uv);
+    let sample = textureSample(render_texture, render_sampler, input.uv);
+
+    return vec4<f32>(sample.rgb, 1.0);
 }
