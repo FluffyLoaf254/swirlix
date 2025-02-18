@@ -67,7 +67,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
             return simple_blinn_phong(ray_direction, materials[closest.color].color, normalize(closest.normal));
         }
 
-        ray_distance += max(closest.distance - hit_distance, 1.0 / f32(settings.resolution));
+        ray_distance += max(closest.distance, 1.0 / f32(settings.resolution));
 
         if (ray_distance > maximum_distance) {
             break;
@@ -144,7 +144,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
     var hit = parent;
     var child_offset = 0u;
     var child_mask = 0u;
-    var voxel_normal = parent.normal;
+    var voxel_normal = vec3<f32>(0.0, 0.0, 0.0);
 
     for (var child = 0u; child < 8u; child += 1u) {
         let child_value = (1u << child);
@@ -174,10 +174,12 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         }
 
         if ((children & child_value) == 0u) {
-            if (voxel_normal.x == 0.0 && voxel_normal.y == 0.0 && voxel_normal.z == 0.0) {
-                voxel_normal = normalize(child_normal);
-            } else {
-                voxel_normal = normalize(mix(voxel_normal, normalize(child_normal), 0.5));
+            if (child_normal.x != 0.0 || child_normal.y != 0.0 || child_normal.z != 0.0) {
+                if (voxel_normal.x == 0.0 && voxel_normal.y == 0.0 && voxel_normal.z == 0.0) {
+                    voxel_normal = normalize(child_normal);
+                } else {
+                    voxel_normal = normalize(mix(voxel_normal, normalize(child_normal), 0.225));
+                }
             }
             continue;
         }
@@ -190,7 +192,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
             if (child_distance < minimum_distance) {
                 minimum_distance = child_distance;
 
-                hit = VoxelHit(is_leaf, next_pointer + child_offset, child_distance, child_center, half_voxel_size, 0u, child_mask | child_value, 0u, vec3<f32>(0.0, 0.0, 0.0));
+                hit = VoxelHit(is_leaf, next_pointer + child_offset, child_distance, child_center, half_voxel_size, 0u, child_mask | child_value, 0u, parent.normal);
             }
 
             if (is_leaf) {
@@ -205,7 +207,13 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         }
     }
 
-    hit.normal = voxel_normal;
+    if (voxel_normal.x != 0.0 || voxel_normal.y != 0.0 || voxel_normal.z != 0.0) {
+        if (hit.normal.x == 0.0 && hit.normal.y == 0.0 && hit.normal.z == 0.0) {
+            hit.normal = voxel_normal;
+        } else {
+            hit.normal = normalize(mix(hit.normal, voxel_normal, 0.225));
+        }
+    }
 
     return hit;
 }
