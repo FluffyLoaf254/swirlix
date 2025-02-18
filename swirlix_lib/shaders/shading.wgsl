@@ -47,17 +47,18 @@ fn simple_blinn_phong(color: vec3<f32>, normal: vec3<f32>) -> vec4<f32> {
 }
 
 fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
-    const delta = (1.0 / dimensions);
+    const inner = (2.0 / dimensions);
+    const outer = (3.0 / dimensions);
 
     let c0 = textureSample(render_texture, render_sampler, uv).w;
-    let l1 = textureSample(render_texture, render_sampler, uv - vec2<f32>(delta, 0.0)).w;
-    let l2 = textureSample(render_texture, render_sampler, uv - vec2<f32>(delta * 2.0, 0.0)).w;
-    let r1 = textureSample(render_texture, render_sampler, uv + vec2<f32>(delta, 0.0)).w;
-    let r2 = textureSample(render_texture, render_sampler, uv + vec2<f32>(delta * 2.0, 0.0)).w;
-    let b1 = textureSample(render_texture, render_sampler, uv - vec2<f32>(0.0, delta)).w;
-    let b2 = textureSample(render_texture, render_sampler, uv - vec2<f32>(0.0, delta * 2.0)).w;
-    let t1 = textureSample(render_texture, render_sampler, uv + vec2<f32>(0.0, delta)).w;
-    let t2 = textureSample(render_texture, render_sampler, uv + vec2<f32>(0.0, delta * 2.0)).w;
+    let l1 = textureSample(render_texture, render_sampler, uv - vec2<f32>(inner, 0.0)).w;
+    let l2 = textureSample(render_texture, render_sampler, uv - vec2<f32>(outer, 0.0)).w;
+    let r1 = textureSample(render_texture, render_sampler, uv + vec2<f32>(inner, 0.0)).w;
+    let r2 = textureSample(render_texture, render_sampler, uv + vec2<f32>(outer, 0.0)).w;
+    let b1 = textureSample(render_texture, render_sampler, uv - vec2<f32>(0.0, inner)).w;
+    let b2 = textureSample(render_texture, render_sampler, uv - vec2<f32>(0.0, outer)).w;
+    let t1 = textureSample(render_texture, render_sampler, uv + vec2<f32>(0.0, inner)).w;
+    let t2 = textureSample(render_texture, render_sampler, uv + vec2<f32>(0.0, outer)).w;
     
     let dl = abs((l1 * l2) / (2.0 * l2 - l1) - c0);
     let dr = abs((r1 * r2) / (2.0 * r2 - r1) - c0);
@@ -68,16 +69,16 @@ fn compute_normal(uv: vec2<f32>) -> vec3<f32> {
 
     var dpdx = vec3<f32>();
     if (dl < dr) {
-        dpdx = center - get_world_pos(uv - vec2<f32>(delta, 0.0), l1);
+        dpdx = center - get_world_pos(uv - vec2<f32>(inner, 0.0), l1);
     } else {
-        dpdx = -center + get_world_pos(uv + vec2<f32>(delta, 0.0), r1);
+        dpdx = -center + get_world_pos(uv + vec2<f32>(inner, 0.0), r1);
     }
 
     var dpdy = vec3<f32>();
     if (db < dt) {
-        dpdy = center - get_world_pos(uv - vec2<f32>(0.0, delta), b1);
+        dpdy = center - get_world_pos(uv - vec2<f32>(0.0, inner), b1);
     } else {
-        dpdy = -center + get_world_pos(uv + vec2<f32>(0.0, delta), t1);
+        dpdy = -center + get_world_pos(uv + vec2<f32>(0.0, inner), t1);
     }
 
     return normalize(cross(dpdx, dpdy));
