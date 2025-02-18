@@ -145,7 +145,6 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
     var child_offset = 0u;
     var child_mask = 0u;
     var voxel_normal = vec3<f32>(0.0, 0.0, 0.0);
-    var normal_count = 0.0;
 
     for (var child = 0u; child < 8u; child += 1u) {
         let child_value = (1u << child);
@@ -175,12 +174,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         }
 
         if ((children & child_value) == 0u) {
-            if (normal_count == 0.0) {
-                voxel_normal = child_normal;
-            } else {
-                voxel_normal += child_normal;
-            }
-            normal_count += 1.0;
+            voxel_normal += child_normal;
             continue;
         }
 
@@ -208,12 +202,11 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
     }
 
     if (voxel_normal.x != 0.0 || voxel_normal.y != 0.0 || voxel_normal.z != 0.0) {
-        voxel_normal = normalize(voxel_normal / normal_count);
+        voxel_normal = normalize(voxel_normal);
         if (hit.normal.x == 0.0 && hit.normal.y == 0.0 && hit.normal.z == 0.0) {
             hit.normal = voxel_normal;
         } else {
-            let coefficient = clamp(log2(1.0 / parent.size), 0.25, 7.0);
-            hit.normal = hit.normal + voxel_normal * coefficient;
+            hit.normal = hit.normal + voxel_normal;
         }
     }
 
