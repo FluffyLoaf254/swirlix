@@ -154,24 +154,24 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         var child_center = parent.center;
         if ((child_value & 85u) != 0u) { // left
             child_center.x -= quarter_voxel_size;
-            child_normal.x -= 1.0;
+            child_normal.x += 1.0;
         } else { // right
             child_center.x += quarter_voxel_size;
-            child_normal.x += 1.0;
+            child_normal.x -= 1.0;
         }
         if ((child_value & 51u) != 0u) { // back
             child_center.y -= quarter_voxel_size;
-            child_normal.y -= 1.0;
+            child_normal.y += 1.0;
         } else { // front
             child_center.y += quarter_voxel_size;
-            child_normal.y += 1.0;
+            child_normal.y -= 1.0;
         }
         if ((child_value & 15u) != 0u) { // top
             child_center.z -= quarter_voxel_size;
-            child_normal.z -= 1.0;
+            child_normal.z += 1.0;
         } else { // bottom
             child_center.z += quarter_voxel_size;
-            child_normal.z += 1.0;
+            child_normal.z -= 1.0;
         }
 
         if ((children & child_value) == 0u) {
@@ -212,7 +212,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         if (hit.normal.x == 0.0 && hit.normal.y == 0.0 && hit.normal.z == 0.0) {
             hit.normal = voxel_normal;
         } else {
-            let coefficient = log2(parent.size);
+            let coefficient = clamp(log2(1.0 / parent.size), 0.25, 7.0);
             hit.normal = hit.normal + voxel_normal * coefficient;
         }
     }
