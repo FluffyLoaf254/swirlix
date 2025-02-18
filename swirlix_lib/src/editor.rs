@@ -16,7 +16,7 @@ impl Default for Editor {
 	/// A default editor/document.
 	fn default() -> Self {
 		Editor {
-			sculpt: Sculpt::new(256),
+			sculpt: Sculpt::new(1024),
 			current_brush: 0,
 			brushes: vec![
 				Brush::new("Round Brush".to_owned(), Box::new(RoundBrushTip::new())),
@@ -40,6 +40,11 @@ impl Editor {
 	/// Get the buffer for the sculpted voxels.
 	pub fn get_voxel_buffer(&self) -> Vec<u32> {
 		self.sculpt.get_voxel_buffer()
+	}
+
+	/// Get the buffer for the used materials.
+	pub fn get_material_buffer(&self) -> Vec<f32> {
+		self.sculpt.get_material_buffer()
 	}
 
 	/// Draw additively on the sculpt.

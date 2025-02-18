@@ -1,4 +1,3 @@
-use crate::material::Material;
 use crate::util::Point;
 use crate::sculpt::Sculpt;
 
@@ -7,7 +6,6 @@ pub struct Brush {
 	pub name: String,
 	tip: Box<dyn Draw>,
 	size: f32,
-	material: Material,
 }
 
 impl Brush {
@@ -17,31 +15,26 @@ impl Brush {
 			name,
 			tip,
 			size: 0.25,
-		    material: Material {
-		    	color: [255, 0, 0, 255],
-		    	roughness: 128,
-		    	metallic: 0,
-		    },
 		}
 	}
 
 	/// Sculpt by adding geometry.
 	pub fn add(&self, sculpt: &mut Sculpt, x: f32, y: f32) {
-		self.tip.add(sculpt, x, y, self.size, self.material);
+		self.tip.add(sculpt, x, y, self.size);
 	}
 
     /// Sculpt by removing geometry.
 	pub fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32) {
-		self.tip.remove(sculpt, x, y, self.size, self.material);
+		self.tip.remove(sculpt, x, y, self.size);
 	}
 }
 
 pub trait Draw {
 	/// Sculpt by adding geometry.
-	fn add(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32, material: Material);
+	fn add(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32);
 
 	/// Sculpt by removing geometry.
-	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32, material: Material);
+	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32);
 }
 
 /// A brush tip for drawing spherical shapes.
@@ -126,7 +119,7 @@ impl RoundBrushTip {
 
 impl Draw for RoundBrushTip {
 	/// Sculpt by adding geometry.
-	fn add(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32, material: Material) {
+	fn add(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32) {
 		let brush_position = Point {
 			x,
 			y,
@@ -134,14 +127,13 @@ impl Draw for RoundBrushTip {
 		};
 		let brush_size = size;
 		sculpt.subdivide(
-			material,
 			RoundBrushTip::filler(brush_size, brush_position),
 			RoundBrushTip::container(brush_size, brush_position)
 		);
 	}
 
 	/// Sculpt by removing geometry.
-	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32, material: Material) {
+	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32) {
 		let brush_position = Point {
 			x,
 			y,
@@ -149,7 +141,6 @@ impl Draw for RoundBrushTip {
 		};
 		let brush_size = size;
 		sculpt.unsubdivide(
-			material,
 			RoundBrushTip::filler(brush_size, brush_position),
 			RoundBrushTip::container(brush_size, brush_position)
 		);
@@ -225,7 +216,7 @@ impl SquareBrushTip {
 
 impl Draw for SquareBrushTip {
 	/// Sculpt by adding geometry.
-	fn add(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32, material: Material) {
+	fn add(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32) {
 		let brush_position = Point {
 			x,
 			y,
@@ -233,14 +224,13 @@ impl Draw for SquareBrushTip {
 		};
 		let brush_size = size;
 		sculpt.subdivide(
-			material,
 			SquareBrushTip::filler(brush_size, brush_position),
 			SquareBrushTip::container(brush_size, brush_position)
 		);
 	}
 
 	/// Sculpt by removing geometry.
-	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32, material: Material) {
+	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32) {
 		let brush_position = Point {
 			x,
 			y,
@@ -248,7 +238,6 @@ impl Draw for SquareBrushTip {
 		};
 		let brush_size = size;
 		sculpt.unsubdivide(
-			material,
 			SquareBrushTip::filler(brush_size, brush_position),
 			SquareBrushTip::container(brush_size, brush_position)
 		);

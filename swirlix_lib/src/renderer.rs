@@ -4,6 +4,8 @@ use std::sync::Arc;
 
 use winit::window::Window;
 
+use crate::material::Material;
+
 /// Handle rendering with wgpu.
 pub struct Renderer {
     adapter: wgpu::Adapter,
@@ -13,7 +15,9 @@ pub struct Renderer {
     device: wgpu::Device,
     queue: wgpu::Queue,
     resolution: u32,
+    settings_buffer: wgpu::Buffer,
     voxel_buffer: wgpu::Buffer,
+    material_buffer: wgpu::Buffer,
     ray_marching_pipeline: wgpu::RenderPipeline,
     ray_marching_bind_group: wgpu::BindGroup,
     ray_marching_texture: wgpu::Texture,
@@ -88,6 +92,15 @@ impl Renderer {
             usage: None,
         });
 
+        let settings_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Settings Buffer"),
+            size: 1 * 4,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false
+        });
+
+        queue.write_buffer(&settings_buffer, 0, Renderer::u32_array_to_buffer(&[resolution]));
+
         let voxel_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Voxel Buffer"),
             size: 134217728,
@@ -95,7 +108,16 @@ impl Renderer {
             mapped_at_creation: false
         });
 
-        queue.write_buffer(&voxel_buffer, 0, &[0, 0, 0, 0]);
+        queue.write_buffer(&voxel_buffer, 0, Renderer::u32_array_to_buffer(&[0, 0]));
+
+        let material_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Material Buffer"),
+            size: 134217728,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false
+        });
+
+        queue.write_buffer(&material_buffer, 0, Renderer::f32_array_to_buffer(&Material::default().to_buffer()));
 
         queue.submit([]);
 
@@ -110,9 +132,25 @@ impl Renderer {
                 wgpu::BindGroupEntry { 
                     binding: 0, 
                     resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &settings_buffer,
+                        offset: 0,
+                        size: None,
+                    })
+                },
+                wgpu::BindGroupEntry { 
+                    binding: 1, 
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                         buffer: &voxel_buffer,
                         offset: 0,
-                        size: NonZero::new(voxel_buffer.size()),
+                        size: None,
+                    })
+                },
+                wgpu::BindGroupEntry { 
+                    binding: 2, 
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &material_buffer,
+                        offset: 0,
+                        size: None,
                     })
                 },
             ],
@@ -147,7 +185,9 @@ impl Renderer {
             window,
             device,
             queue,
+            settings_buffer,
             voxel_buffer,
+            material_buffer,
             ray_marching_pipeline,
             ray_marching_bind_group,
             ray_marching_texture,
@@ -175,13 +215,35 @@ impl Renderer {
                     binding: 0,
                     count: NonZero::new(1),
                     ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: NonZero::new(1 * 4),
+                    }
+                },
+                wgpu::BindGroupLayoutEntry {
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    binding: 1,
+                    count: NonZero::new(1),
+                    ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage {
                             read_only: true,
                         },
                         has_dynamic_offset: false,
                         min_binding_size: NonZero::new(134217728),
                     }
-                }
+                },
+                wgpu::BindGroupLayoutEntry {
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    binding: 2,
+                    count: NonZero::new(1),
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage {
+                            read_only: true,
+                        },
+                        has_dynamic_offset: false,
+                        min_binding_size: NonZero::new(134217728),
+                    }
+                },
             ],
         });
 
@@ -299,6 +361,11 @@ impl Renderer {
     /// Queue a change to the voxel buffer.
     pub fn set_voxel_buffer(&mut self, voxels: Vec<u32>) {
         self.queue.write_buffer(&self.voxel_buffer, 0, Renderer::u32_array_to_buffer(&voxels));
+    }
+
+    /// Queue a change to the material buffer.
+    pub fn set_material_buffer(&mut self, materials: Vec<f32>) {
+        self.queue.write_buffer(&self.material_buffer, 0, Renderer::f32_array_to_buffer(&materials));
     }
 
     /// Draw the contents to the wgpu surface.

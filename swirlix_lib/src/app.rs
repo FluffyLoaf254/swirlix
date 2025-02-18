@@ -40,8 +40,8 @@ impl ApplicationHandler for App {
             let win_attr = Window::default_attributes()
                 .with_title(format!("Swirlix {version}"))
                 .with_inner_size(PhysicalSize {
-                    width: 1000,
-                    height: 1000,
+                    width: 1024,
+                    height: 1024,
                 });
             // use Arc
             let window = Arc::new(
@@ -109,6 +109,7 @@ impl ApplicationHandler for App {
                     let size = self.window.as_ref().unwrap().inner_size();
                     // remap x/y values from pixel to 0-1 for now...
                     self.editor.add((self.cursor_position.x / size.width as f64) as f32, (self.cursor_position.y / size.height as f64) as f32);
+                    self.context.as_mut().unwrap().set_material_buffer(self.editor.get_material_buffer());
                     self.context.as_mut().unwrap().set_voxel_buffer(self.editor.get_voxel_buffer());
                     if let Some(window) = self.window.as_ref() {
                         window.request_redraw();
@@ -119,6 +120,7 @@ impl ApplicationHandler for App {
                     let size = self.window.as_ref().unwrap().inner_size();
                     // remap x/y values from pixel to 0-1 for now...
                     self.editor.remove((self.cursor_position.x / size.width as f64) as f32, (self.cursor_position.y / size.height as f64) as f32);
+                    self.context.as_mut().unwrap().set_material_buffer(self.editor.get_material_buffer());
                     self.context.as_mut().unwrap().set_voxel_buffer(self.editor.get_voxel_buffer());
                     if let Some(window) = self.window.as_ref() {
                         window.request_redraw();
