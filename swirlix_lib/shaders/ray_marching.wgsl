@@ -75,7 +75,7 @@ fn hit_root(position: vec3<f32>) -> VoxelHit {
 }
 
 fn hit_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
-    const max_steps = 32u;
+    const max_steps = 64u;
 
     var minimum_distance = 100.0;
     var level = 0u;
@@ -83,7 +83,7 @@ fn hit_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
     var result = parent;
     var next = parent;
 
-    var visited = array<VoxelHit, 32>();
+    var visited = array<VoxelHit, 64>();
 
     visited[level] = next;
 
