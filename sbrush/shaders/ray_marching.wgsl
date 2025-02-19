@@ -92,32 +92,28 @@ fn voxel_normal(hit: VoxelHit, position: vec3<f32>, ray_direction: vec3<f32>) ->
 
     var normal = vec3<f32>(0.0, 0.0, 0.0);
     if lfb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, -1.0, -1.0) * rbt.distance;
+        normal += vec3<f32>(-1.0, -1.0, -1.0) * clamp(rbt.distance, 0.0, 1.0);
     }
     if rfb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, -1.0, -1.0) * lbt.distance;
+        normal += vec3<f32>(1.0, -1.0, -1.0) * clamp(lbt.distance, 0.0, 1.0);
     }
     if lbb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, 1.0, -1.0) * rbb.distance;
+        normal += vec3<f32>(-1.0, 1.0, -1.0) * clamp(rbb.distance, 0.0, 1.0);
     }
     if rbb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, 1.0, -1.0) * lft.distance;
+        normal += vec3<f32>(1.0, 1.0, -1.0) * clamp(lft.distance, 0.0, 1.0);
     }
     if lft.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, -1.0, 1.0) * rfb.distance;
+        normal += vec3<f32>(-1.0, -1.0, 1.0) * clamp(rfb.distance, 0.0, 1.0);
     }
     if rft.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, -1.0, 1.0) * lbb.distance;
+        normal += vec3<f32>(1.0, -1.0, 1.0) * clamp(lbb.distance, 0.0, 1.0);
     }
     if lbt.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, 1.0, 1.0) * rfb.distance;
+        normal += vec3<f32>(-1.0, 1.0, 1.0) * clamp(rfb.distance, 0.0, 1.0);
     }
     if rbt.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, 1.0, 1.0) * rbt.distance;
-    }
-
-    if (normal.x == 0.0 && normal.y == 0.0 && normal.z == 0.0) {
-        normal = ray_direction;
+        normal += vec3<f32>(1.0, 1.0, 1.0) * clamp(rbt.distance, 0.0, 1.0);
     }
 
     return normalize(normal);
@@ -249,8 +245,8 @@ fn voxel_distance(position: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32
 }
 
 fn simple_blinn_phong(view_direction: vec3<f32>, color: vec4<f32>, normal: vec3<f32>, depth: f32) -> vec4<f32> {
-    const specular_power = 2.0;
-    const gloss = 0.95;
+    const specular_power = 4.0;
+    const gloss = 0.5;
 
     let light_direction = normalize(vec3<f32>(0.25, 0.5, 1.0));
     let light_color = vec3<f32>(1.0, 1.0, 1.0);
