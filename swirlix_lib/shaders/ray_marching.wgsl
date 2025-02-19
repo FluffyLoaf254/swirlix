@@ -206,7 +206,7 @@ fn hit_next_voxel(parent: VoxelHit, position: vec3<f32>) -> VoxelHit {
         if (hit.normal.x == 0.0 && hit.normal.y == 0.0 && hit.normal.z == 0.0) {
             hit.normal = voxel_normal;
         } else {
-            hit.normal = hit.normal + voxel_normal;
+            hit.normal = normalize(hit.normal + voxel_normal);
         }
     }
 

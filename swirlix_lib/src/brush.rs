@@ -14,7 +14,7 @@ impl Brush {
 		Self {
 			name,
 			tip,
-			size: 0.1,
+			size: 0.125,
 		}
 	}
 
