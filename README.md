@@ -42,3 +42,7 @@ cargo test --workspace
 Left clicking will add voxels under the cursor, while right clicking deletes voxels.
 
 Pressing "S" will switch to the square brush and pressing "R" will switch back to the round brush.
+
+## Contributing
+
+This project is still very early in development, so there will be a lot of breaking changes. If you'd like to contribute, I'd welcome discussion in the issues. Thanks!
