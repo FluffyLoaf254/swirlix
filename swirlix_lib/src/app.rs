@@ -50,7 +50,7 @@ impl ApplicationHandler for App {
                     .expect("Could not create the window."),
             );
             self.window = Some(window.clone());
-            let context = Renderer::new(window.clone(), self.editor.get_sculpt_resolution());
+            let context = Renderer::new(window.clone(), 1024);
             self.context = Some(context);
         }
     }

@@ -48,7 +48,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let ray_origin = vec3<f32>(input.uv, 0.0); // multiply by world matrix
     let ray_direction = vec3<f32>(0.0, 0.0, 1.0); // multiply by world matrix
     
-    const max_steps = 32u;
+    const max_steps = 16u;
     const maximum_distance = 1.0;
 
     var ray_distance = 0.0;
@@ -67,7 +67,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
         if (closest.distance <= hit_distance / f32(settings.resolution)) {
             position = ray_origin + ray_distance * ray_direction;
 
-            return simple_blinn_phong(ray_direction, materials[closest.color].color, voxel_normal(position), ray_distance);
+            return simple_blinn_phong(ray_direction, materials[closest.color].color, voxel_normal(closest, position), ray_distance);
         }
 
         if (ray_distance > maximum_distance) {
@@ -78,12 +78,12 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(0.03, 0.04, 0.06, 1.0);
 }
 
-fn voxel_normal(position: vec3<f32>) -> vec3<f32> {
-    let epsilon = 16.0 / f32(settings.resolution);
+fn voxel_normal(hit: VoxelHit, position: vec3<f32>) -> vec3<f32> {
+    let delta = hit.size * 5.0;
 
-    var dx = hit_root(position - vec3<f32>(epsilon, 0.0, 0.0)).distance - hit_root(position + vec3<f32>(epsilon, 0.0, 0.0)).distance;
-    var dy = hit_root(position - vec3<f32>(0.0, epsilon, 0.0)).distance - hit_root(position + vec3<f32>(0.0, epsilon, 0.0)).distance;
-    var dz = hit_root(position - vec3<f32>(0.0, 0.0, epsilon)).distance - hit_root(position + vec3<f32>(0.0, 0.0, epsilon)).distance;
+    var dx = hit_root(position - vec3<f32>(delta, 0.0, 0.0)).distance - hit_root(position + vec3<f32>(delta, 0.0, 0.0)).distance;
+    var dy = hit_root(position - vec3<f32>(0.0, delta, 0.0)).distance - hit_root(position + vec3<f32>(0.0, delta, 0.0)).distance;
+    var dz = hit_root(position - vec3<f32>(0.0, 0.0, delta)).distance - hit_root(position + vec3<f32>(0.0, 0.0, delta)).distance;
 
     return normalize(vec3<f32>(dx, dy, dz));
 }
@@ -214,10 +214,10 @@ fn voxel_distance(position: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32
 }
 
 fn simple_blinn_phong(view_direction: vec3<f32>, color: vec4<f32>, normal: vec3<f32>, depth: f32) -> vec4<f32> {
-    const specular_power = 2.0;
-    const gloss = 0.95;
+    const specular_power = 1.0;
+    const gloss = 0.5;
 
-    let light_direction = normalize(vec3<f32>(0.8, 0.8, 1.0));
+    let light_direction = normalize(vec3<f32>(0.25, 0.25, 1.0));
     let light_color = vec3<f32>(1.0, 1.0, 1.0);
     let n_dot_l = max(dot(normal, light_direction), 0.0);
     let h = (light_direction - view_direction) / 2.0;
