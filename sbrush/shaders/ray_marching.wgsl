@@ -79,41 +79,41 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 
 fn voxel_normal(hit: VoxelHit, position: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
-    let delta = 5.0 / f32(settings.resolution);
+    let delta = 6.5 / f32(settings.resolution);
 
-    let lfb = (hit_root(position + vec3<f32>(-delta, -delta, -delta)).distance <= (hit_distance / f32(settings.resolution)));
-    let rfb = (hit_root(position + vec3<f32>(delta, -delta, -delta)).distance <= (hit_distance / f32(settings.resolution)));
-    let lbb = (hit_root(position + vec3<f32>(-delta, delta, -delta)).distance <= (hit_distance / f32(settings.resolution)));
-    let rbb = (hit_root(position + vec3<f32>(delta, delta, -delta)).distance <= (hit_distance / f32(settings.resolution)));
-    let lft = (hit_root(position + vec3<f32>(-delta, -delta, delta)).distance <= (hit_distance / f32(settings.resolution)));
-    let rft = (hit_root(position + vec3<f32>(delta, -delta, delta)).distance <= (hit_distance / f32(settings.resolution)));
-    let lbt = (hit_root(position + vec3<f32>(-delta, delta, delta)).distance <= (hit_distance / f32(settings.resolution)));
-    let rbt = (hit_root(position + vec3<f32>(delta, delta, delta)).distance <= (hit_distance / f32(settings.resolution)));
+    let lfb = hit_root(position + vec3<f32>(-delta, -delta, -delta));
+    let rfb = hit_root(position + vec3<f32>(delta, -delta, -delta));
+    let lbb = hit_root(position + vec3<f32>(-delta, delta, -delta));
+    let rbb = hit_root(position + vec3<f32>(delta, delta, -delta));
+    let lft = hit_root(position + vec3<f32>(-delta, -delta, delta));
+    let rft = hit_root(position + vec3<f32>(delta, -delta, delta));
+    let lbt = hit_root(position + vec3<f32>(-delta, delta, delta));
+    let rbt = hit_root(position + vec3<f32>(delta, delta, delta));
 
     var normal = vec3<f32>(0.0, 0.0, 0.0);
-    if lfb {
-        normal += vec3<f32>(-1.0, -1.0, -1.0);
+    if lfb.distance <= (hit_distance / f32(settings.resolution)) {
+        normal += vec3<f32>(-1.0, -1.0, -1.0) * rbt.distance;
     }
-    if rfb {
-        normal += vec3<f32>(1.0, -1.0, -1.0);
+    if rfb.distance <= (hit_distance / f32(settings.resolution)) {
+        normal += vec3<f32>(1.0, -1.0, -1.0) * lbt.distance;
     }
-    if lbb {
-        normal += vec3<f32>(-1.0, 1.0, -1.0);
+    if lbb.distance <= (hit_distance / f32(settings.resolution)) {
+        normal += vec3<f32>(-1.0, 1.0, -1.0) * rbb.distance;
     }
-    if rbb {
-        normal += vec3<f32>(1.0, 1.0, -1.0);
+    if rbb.distance <= (hit_distance / f32(settings.resolution)) {
+        normal += vec3<f32>(1.0, 1.0, -1.0) * lft.distance;
     }
-    if lft {
-        normal += vec3<f32>(-1.0, -1.0, 1.0);
+    if lft.distance <= (hit_distance / f32(settings.resolution)) {
+        normal += vec3<f32>(-1.0, -1.0, 1.0) * rfb.distance;
     }
-    if rft {
-        normal += vec3<f32>(1.0, -1.0, 1.0);
+    if rft.distance <= (hit_distance / f32(settings.resolution)) {
+        normal += vec3<f32>(1.0, -1.0, 1.0) * lbb.distance;
     }
-    if lbt {
-        normal += vec3<f32>(-1.0, 1.0, 1.0);
+    if lbt.distance <= (hit_distance / f32(settings.resolution)) {
+        normal += vec3<f32>(-1.0, 1.0, 1.0) * rfb.distance;
     }
-    if rbt {
-        normal += vec3<f32>(1.0, 1.0, 1.0);
+    if rbt.distance <= (hit_distance / f32(settings.resolution)) {
+        normal += vec3<f32>(1.0, 1.0, 1.0) * rbt.distance;
     }
 
     if (normal.x == 0.0 && normal.y == 0.0 && normal.z == 0.0) {
@@ -250,9 +250,9 @@ fn voxel_distance(position: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32
 
 fn simple_blinn_phong(view_direction: vec3<f32>, color: vec4<f32>, normal: vec3<f32>, depth: f32) -> vec4<f32> {
     const specular_power = 2.0;
-    const gloss = 0.8;
+    const gloss = 0.95;
 
-    let light_direction = normalize(vec3<f32>(0.5, 0.5, 1.0));
+    let light_direction = normalize(vec3<f32>(0.25, 0.5, 1.0));
     let light_color = vec3<f32>(1.0, 1.0, 1.0);
     let n_dot_l = max(dot(normal, light_direction), 0.0);
     let h = (light_direction - view_direction) / 2.0;
