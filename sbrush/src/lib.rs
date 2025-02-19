@@ -3,7 +3,7 @@
 //! A simple, performant voxel sculpting tool library.
 //!
 //! The library crate for a sculpting tool built on sparse 
-//! voxel octrees (SVO) and the transvoxel algorithm.
+//! voxel octrees and the ray marching.
 
 mod util;
 mod app;

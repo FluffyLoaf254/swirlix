@@ -1240,6 +1240,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sbrush"
+version = "0.1.0"
+dependencies = [
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1395,16 +1404,7 @@ dependencies = [
 name = "swirlix"
 version = "0.1.0"
 dependencies = [
- "swirlix_lib",
-]
-
-[[package]]
-name = "swirlix_lib"
-version = "0.1.0"
-dependencies = [
- "pollster",
- "wgpu",
- "winit",
+ "sbrush",
 ]
 
 [[package]]

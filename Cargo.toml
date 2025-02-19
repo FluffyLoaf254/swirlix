@@ -7,4 +7,4 @@ authors = ["Samuel Goertz <samuel.goertz7@gmail.com>"]
 [workspace]
 
 [dependencies]
-swirlix_lib = { path = "swirlix_lib" }
+sbrush = { path = "sbrush" }

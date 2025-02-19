@@ -1,5 +1,5 @@
 [package]
-name = "swirlix_lib"
+name = "sbrush"
 version = "0.1.0"
 edition = "2021"
 authors = ["Samuel Goertz <samuel.goertz7@gmail.com>"]

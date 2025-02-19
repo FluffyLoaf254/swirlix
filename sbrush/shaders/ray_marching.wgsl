@@ -41,7 +41,7 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 @group(0) @binding(1) var<storage, read> voxels: array<u32>;
 @group(0) @binding(2) var<storage, read> materials: array<Material>;
 
-const hit_distance = 1.0;
+const hit_distance = 0.5;
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
@@ -79,7 +79,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 
 fn voxel_normal(hit: VoxelHit, position: vec3<f32>) -> vec3<f32> {
-    let delta = hit.size * 5.0;
+    let delta = clamp(hit.size * 6.0, 0.0, 0.5);
 
     var dx = hit_root(position - vec3<f32>(delta, 0.0, 0.0)).distance - hit_root(position + vec3<f32>(delta, 0.0, 0.0)).distance;
     var dy = hit_root(position - vec3<f32>(0.0, delta, 0.0)).distance - hit_root(position + vec3<f32>(0.0, delta, 0.0)).distance;

@@ -4,7 +4,7 @@
 //! and ray marching.
 
 use std::error::Error;
-use swirlix_lib::App;
+use sbrush::App;
 
 /// The entrypoint runs the event loop.
 fn main() -> Result<(), Box<dyn Error>> {
