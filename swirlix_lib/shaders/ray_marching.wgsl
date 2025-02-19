@@ -42,7 +42,7 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 @group(0) @binding(1) var<storage, read> voxels: array<u32>;
 @group(0) @binding(2) var<storage, read> materials: array<Material>;
 
-const hit_distance = 0.0;
+const hit_distance = 0.0005;
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
