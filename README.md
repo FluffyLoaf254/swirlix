@@ -1,4 +1,4 @@
-# Swirlix
+# ![swirlix-logo](https://github.com/user-attachments/assets/349a304f-8139-4dd0-9093-bbd63e1c02df) Swirlix
 
 ## About
 
