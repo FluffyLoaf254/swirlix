@@ -1,4 +1,4 @@
-# ![swirlix-logo](https://raw.githubusercontent.com/FluffyLoaf254/swirlix/refs/heads/main/desktop/icons/logo-32.svg) Swirlix
+# ![Swirlix Logo](https://raw.githubusercontent.com/FluffyLoaf254/swirlix/refs/heads/main/desktop/icons/logo-32.svg) Swirlix
 
 ## About
 
