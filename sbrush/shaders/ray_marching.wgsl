@@ -78,7 +78,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(0.03, 0.04, 0.06, 1.0);
 }
 
-fn voxel_normal(hit: VoxelHit, position: vec3<f32>, ray_direction: vec3<f32>) -> vec3<f32> {
+fn voxel_normal(hit: VoxelHit, position: vec3<f32>, view_direction: vec3<f32>) -> vec3<f32> {
     let delta = 6.5 / f32(settings.resolution);
 
     let lfb = hit_root(position + vec3<f32>(-delta, -delta, -delta));
@@ -114,6 +114,10 @@ fn voxel_normal(hit: VoxelHit, position: vec3<f32>, ray_direction: vec3<f32>) ->
     }
     if rbt.distance <= (hit_distance / f32(settings.resolution)) {
         normal += vec3<f32>(1.0, 1.0, 1.0) * clamp(rbt.distance, 0.0, 1.0);
+    }
+
+    if (normal.x == 0.0 && normal.y == 0.0 && normal.z == 0.0) {
+        normal = view_direction;
     }
 
     return normalize(normal);
@@ -254,5 +258,5 @@ fn simple_blinn_phong(view_direction: vec3<f32>, color: vec4<f32>, normal: vec3<
     let h = (light_direction - view_direction) / 2.0;
     let specular = pow(dot(normal, h), specular_power) * gloss;
 
-    return vec4<f32>(color.rgb * light_color * n_dot_l, depth) + specular;
+    return vec4<f32>(color.rgb * light_color * n_dot_l * 0.85 + color.rgb * 0.15, depth) + specular;
 }
