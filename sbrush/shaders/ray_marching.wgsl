@@ -98,13 +98,13 @@ fn voxel_normal(hit: VoxelHit, position: vec3<f32>) -> vec3<f32> {
         normal += vec3<f32>(-1.0, 1.0, 1.0) * clamp(lbt.distance, 0.0, 1.0);
     }
     if lbb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, -1.0, 1.0) * clamp(rbb.distance, 0.0, 1.0);
+        normal += vec3<f32>(1.0, -1.0, 1.0) * clamp(rft.distance, 0.0, 1.0);
     }
     if rbb.distance <= (hit_distance / f32(settings.resolution)) {
         normal += vec3<f32>(-1.0, -1.0, 1.0) * clamp(lft.distance, 0.0, 1.0);
     }
     if lft.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, 1.0, -1.0) * clamp(rfb.distance, 0.0, 1.0);
+        normal += vec3<f32>(1.0, 1.0, -1.0) * clamp(rbb.distance, 0.0, 1.0);
     }
     if rft.distance <= (hit_distance / f32(settings.resolution)) {
         normal += vec3<f32>(-1.0, 1.0, -1.0) * clamp(lbb.distance, 0.0, 1.0);
@@ -113,7 +113,7 @@ fn voxel_normal(hit: VoxelHit, position: vec3<f32>) -> vec3<f32> {
         normal += vec3<f32>(1.0, -1.0, -1.0) * clamp(rfb.distance, 0.0, 1.0);
     }
     if rbt.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, -1.0, -1.0) * clamp(rbt.distance, 0.0, 1.0);
+        normal += vec3<f32>(-1.0, -1.0, -1.0) * clamp(lfb.distance, 0.0, 1.0);
     }
 
     return normalize(normal);
@@ -245,8 +245,8 @@ fn voxel_distance(position: vec3<f32>, center: vec3<f32>, half_size: f32) -> f32
 }
 
 fn simple_blinn_phong(position: vec3<f32>, color: vec4<f32>, normal: vec3<f32>, view_direction: vec3<f32>, depth: f32) -> vec4<f32> {
-    const specular_power = 1.0;
-    const gloss = 0.5;
+    const specular_power = 2.0;
+    const gloss = 5.0;
 
     var n = normal;
 
