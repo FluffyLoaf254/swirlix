@@ -79,7 +79,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 
 fn voxel_normal(hit: VoxelHit, position: vec3<f32>, view_direction: vec3<f32>) -> vec3<f32> {
-    let delta = 3.0 * hit.size;
+    let delta = 3.25 * hit.size;
 
     let lfb = hit_root(hit.center + vec3<f32>(-delta, -delta, -delta));
     let rfb = hit_root(hit.center + vec3<f32>(delta, -delta, -delta));
