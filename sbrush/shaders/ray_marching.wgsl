@@ -41,7 +41,7 @@ fn vertex_main(input: VertexInput) -> VertexOutput {
 @group(0) @binding(1) var<storage, read> voxels: array<u32>;
 @group(0) @binding(2) var<storage, read> materials: array<Material>;
 
-const hit_distance = 1.0;
+const hit_distance = 2.0;
 
 @fragment
 fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
@@ -79,7 +79,7 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 
 fn voxel_normal(hit: VoxelHit, position: vec3<f32>, view_direction: vec3<f32>) -> vec3<f32> {
-    let delta = 3.25 * hit.size;
+    let delta = 4.0 * hit.size;
 
     let lfb = hit_root(hit.center + vec3<f32>(-delta, -delta, -delta));
     let rfb = hit_root(hit.center + vec3<f32>(delta, -delta, -delta));
@@ -92,28 +92,28 @@ fn voxel_normal(hit: VoxelHit, position: vec3<f32>, view_direction: vec3<f32>) -
 
     var normal = vec3<f32>(0.0, 0.0, 0.0);
     if lfb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, 1.0, 1.0) * rbt.distance / delta;
+        normal += vec3<f32>(1.0, 1.0, 1.0) * min(rbt.distance, delta);
     }
     if rfb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, 1.0, 1.0) * lbt.distance / delta;
+        normal += vec3<f32>(-1.0, 1.0, 1.0) * min(lbt.distance, delta);
     }
     if lbb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, -1.0, 1.0) * rft.distance / delta;
+        normal += vec3<f32>(1.0, -1.0, 1.0) * min(rft.distance, delta);
     }
     if rbb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, -1.0, 1.0) * lft.distance / delta;
+        normal += vec3<f32>(-1.0, -1.0, 1.0) * min(lft.distance, delta);
     }
     if lft.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, 1.0, -1.0) * rbb.distance / delta;
+        normal += vec3<f32>(1.0, 1.0, -1.0) * min(rbb.distance, delta);
     }
     if rft.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, 1.0, -1.0) * lbb.distance / delta;
+        normal += vec3<f32>(-1.0, 1.0, -1.0) * min(lbb.distance, delta);
     }
     if lbt.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, -1.0, -1.0) * rfb.distance / delta;
+        normal += vec3<f32>(1.0, -1.0, -1.0) * min(rfb.distance, delta);
     }
     if rbt.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, -1.0, -1.0) * lfb.distance / delta;
+        normal += vec3<f32>(-1.0, -1.0, -1.0) * min(lfb.distance, delta);
     }
 
     if (normal.x == 0.0 && normal.y == 0.0 && normal.z == 0.0) {

@@ -166,12 +166,20 @@ impl Renderer {
             label: Some("Render Bind Group"),
             layout: &render_pipeline.get_bind_group_layout(0),
             entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Sampler(&render_sampler),
+                wgpu::BindGroupEntry { 
+                    binding: 0, 
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &settings_buffer,
+                        offset: 0,
+                        size: None,
+                    })
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&render_sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
                     resource: wgpu::BindingResource::TextureView(&ray_marching_texture_view),
                 },
             ],
@@ -296,10 +304,20 @@ impl Renderer {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
                     count: NonZero::new(1),
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: NonZero::new(1 * 4),
+                    }
+                },
+                wgpu::BindGroupLayoutEntry {
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    binding: 1,
+                    count: NonZero::new(1),
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 },
                 wgpu::BindGroupLayoutEntry {
-                    binding: 1,
+                    binding: 2,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         multisampled: false,
