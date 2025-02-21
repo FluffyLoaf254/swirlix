@@ -92,28 +92,28 @@ fn voxel_normal(hit: VoxelHit, position: vec3<f32>, view_direction: vec3<f32>) -
 
     var normal = vec3<f32>(0.0, 0.0, 0.0);
     if lfb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, 1.0, 1.0) * clamp(rbt.distance, 0.0, delta);
+        normal += vec3<f32>(1.0, 1.0, 1.0) * rbt.distance / delta;
     }
     if rfb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, 1.0, 1.0) * clamp(lbt.distance, 0.0, delta);
+        normal += vec3<f32>(-1.0, 1.0, 1.0) * lbt.distance / delta;
     }
     if lbb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, -1.0, 1.0) * clamp(rft.distance, 0.0, delta);
+        normal += vec3<f32>(1.0, -1.0, 1.0) * rft.distance / delta;
     }
     if rbb.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, -1.0, 1.0) * clamp(lft.distance, 0.0, delta);
+        normal += vec3<f32>(-1.0, -1.0, 1.0) * lft.distance / delta;
     }
     if lft.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, 1.0, -1.0) * clamp(rbb.distance, 0.0, delta);
+        normal += vec3<f32>(1.0, 1.0, -1.0) * rbb.distance / delta;
     }
     if rft.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, 1.0, -1.0) * clamp(lbb.distance, 0.0, delta);
+        normal += vec3<f32>(-1.0, 1.0, -1.0) * lbb.distance / delta;
     }
     if lbt.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(1.0, -1.0, -1.0) * clamp(rfb.distance, 0.0, delta);
+        normal += vec3<f32>(1.0, -1.0, -1.0) * rfb.distance / delta;
     }
     if rbt.distance <= (hit_distance / f32(settings.resolution)) {
-        normal += vec3<f32>(-1.0, -1.0, -1.0) * clamp(lfb.distance, 0.0, delta);
+        normal += vec3<f32>(-1.0, -1.0, -1.0) * lfb.distance / delta;
     }
 
     if (normal.x == 0.0 && normal.y == 0.0 && normal.z == 0.0) {
