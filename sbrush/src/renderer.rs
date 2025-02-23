@@ -46,7 +46,7 @@ impl Renderer {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     label: None,
-                    required_features: wgpu::Features::BUFFER_BINDING_ARRAY | wgpu::Features::STORAGE_RESOURCE_BINDING_ARRAY | wgpu::Features::TEXTURE_BINDING_ARRAY,
+                    required_features: wgpu::Features::default(),
                     // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
                     required_limits: wgpu::Limits::default(),
                     memory_hints: wgpu::MemoryHints::Performance,
@@ -221,7 +221,7 @@ impl Renderer {
                 wgpu::BindGroupLayoutEntry {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
-                    count: NonZero::new(1),
+                    count: None,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -231,7 +231,7 @@ impl Renderer {
                 wgpu::BindGroupLayoutEntry {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 1,
-                    count: NonZero::new(1),
+                    count: None,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage {
                             read_only: true,
@@ -243,7 +243,7 @@ impl Renderer {
                 wgpu::BindGroupLayoutEntry {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 2,
-                    count: NonZero::new(1),
+                    count: None,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Storage {
                             read_only: true,
@@ -303,7 +303,7 @@ impl Renderer {
                 wgpu::BindGroupLayoutEntry {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 0,
-                    count: NonZero::new(1),
+                    count: None,
                     ty: wgpu::BindingType::Buffer {
                         ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
@@ -313,7 +313,7 @@ impl Renderer {
                 wgpu::BindGroupLayoutEntry {
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     binding: 1,
-                    count: NonZero::new(1),
+                    count: None,
                     ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                 },
                 wgpu::BindGroupLayoutEntry {
