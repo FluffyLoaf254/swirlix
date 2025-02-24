@@ -2,6 +2,7 @@ use std::num::NonZero;
 use std::borrow::Cow;
 use std::sync::Arc;
 
+use bytemuck::cast_slice;
 use winit::window::Window;
 
 use crate::material::Material;
@@ -99,7 +100,7 @@ impl Renderer {
             mapped_at_creation: false
         });
 
-        queue.write_buffer(&settings_buffer, 0, Renderer::u32_array_to_buffer(&[resolution]));
+        queue.write_buffer(&settings_buffer, 0, cast_slice(&[resolution]));
 
         let voxel_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Voxel Buffer"),
@@ -108,7 +109,7 @@ impl Renderer {
             mapped_at_creation: false
         });
 
-        queue.write_buffer(&voxel_buffer, 0, Renderer::u32_array_to_buffer(&[0, 0]));
+        queue.write_buffer(&voxel_buffer, 0, cast_slice(&[0, 0]));
 
         let material_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Material Buffer"),
@@ -117,7 +118,7 @@ impl Renderer {
             mapped_at_creation: false
         });
 
-        queue.write_buffer(&material_buffer, 0, Renderer::f32_array_to_buffer(&Material::default().to_buffer()));
+        queue.write_buffer(&material_buffer, 0, cast_slice(&Material::default().to_buffer()));
 
         queue.submit([]);
 
@@ -378,12 +379,12 @@ impl Renderer {
 
     /// Queue a change to the voxel buffer.
     pub fn set_voxel_buffer(&mut self, voxels: Vec<u32>) {
-        self.queue.write_buffer(&self.voxel_buffer, 0, Renderer::u32_array_to_buffer(&voxels));
+        self.queue.write_buffer(&self.voxel_buffer, 0, cast_slice(&voxels));
     }
 
     /// Queue a change to the material buffer.
     pub fn set_material_buffer(&mut self, materials: Vec<f32>) {
-        self.queue.write_buffer(&self.material_buffer, 0, Renderer::f32_array_to_buffer(&materials));
+        self.queue.write_buffer(&self.material_buffer, 0, cast_slice(&materials));
     }
 
     /// Draw the contents to the wgpu surface.
@@ -438,21 +439,5 @@ impl Renderer {
         }
         self.queue.submit(Some(encoder.finish()));
         surface_texture.present();
-    }
-
-    /// Encodes a f32 array into a buffer of u8 values.
-    ///
-    /// This needs to happen to pass the values to the GPU.
-    /// They'll be mapped to f32 or vectors in the shader.
-    fn f32_array_to_buffer(data: &[f32]) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) }
-    }
-
-    /// Encodes a u32 array into a buffer of u8 values.
-    ///
-    /// This needs to happen to pass the values to the GPU.
-    /// They'll be mapped to u32 or vectors in the shader.
-    fn u32_array_to_buffer(data: &[u32]) -> &[u8] {
-        unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) }
     }
 }

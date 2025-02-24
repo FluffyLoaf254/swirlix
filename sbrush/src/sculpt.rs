@@ -1,5 +1,6 @@
-use crate::util::Point;
 use crate::material::Material;
+
+use glam::{Vec3, vec3};
 
 /// The 3D sculpt.
 ///
@@ -15,7 +16,7 @@ impl Sculpt {
 	/// Creates a new sculpt object.
 	pub fn new(resolution: u32) -> Self {
 		Self {
-			root: SculptNode::new(SculptNodeKind::None, 0, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 }),
+			root: SculptNode::new(SculptNodeKind::None, 0, 1.0, vec3(0.5, 0.5, 0.5)),
 			palette: SculptPalette::new(),
 			resolution,
 		}
@@ -42,13 +43,13 @@ impl Sculpt {
 	}
 
 	/// Subdivides space to fill the sculpt.
-	pub fn subdivide(&mut self, is_filled: Box<dyn Fn(f32, Point) -> bool>, is_contained: Box<dyn Fn(f32, Point) -> bool>) {
+	pub fn subdivide(&mut self, is_filled: Box<dyn Fn(f32, Vec3) -> bool>, is_contained: Box<dyn Fn(f32, Vec3) -> bool>) {
 		self.root.subdivide(0, &is_filled, &is_contained, self.min_leaf_size(), false);
 		self.root.set_child_count();
 	}
 
 	/// Remove voxels from the sculpt.
-	pub fn unsubdivide(&mut self, is_filled: Box<dyn Fn(f32, Point) -> bool>, is_contained: Box<dyn Fn(f32, Point) -> bool>) {
+	pub fn unsubdivide(&mut self, is_filled: Box<dyn Fn(f32, Vec3) -> bool>, is_contained: Box<dyn Fn(f32, Vec3) -> bool>) {
 		self.root.unsubdivide(0, &is_filled, &is_contained, self.min_leaf_size());
 		self.root.set_child_count();
 	}
@@ -66,7 +67,7 @@ enum SculptNodeKind {
 struct SculptNode {
 	kind: SculptNodeKind,
 	children: [Option<Box<SculptNode>>; 8],
-	center: Point,
+	center: Vec3,
 	size: f32,
 	material: u32,
 	child_count: u32,
@@ -74,7 +75,7 @@ struct SculptNode {
 
 impl SculptNode {
 	/// Make a sculpt node with the given parameters and no children.
-	fn new(kind: SculptNodeKind, material: u32, size: f32, center: Point) -> Self {
+	fn new(kind: SculptNodeKind, material: u32, size: f32, center: Vec3) -> Self {
 		Self {
 			kind,
 			children: [None, None, None, None, None, None, None, None],
@@ -86,7 +87,7 @@ impl SculptNode {
 	}
 
 	/// Handles the sparse voxel octree subdividing modifications, recursively.
-	fn subdivide(&mut self, fill: u32, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32, invert: bool) {
+	fn subdivide(&mut self, fill: u32, is_filled: &Box<dyn Fn(f32, Vec3) -> bool>, is_contained: &Box<dyn Fn(f32, Vec3) -> bool>, min_leaf_size: f32, invert: bool) {
 		if !invert && self.kind == SculptNodeKind::Leaf {
 			return;
 		}
@@ -101,53 +102,14 @@ impl SculptNode {
 		let half_size = self.size / 2.0;
 		let quarter_size = self.size / 4.0;
 
-		let lfb = Point {
-			x: self.center.x - quarter_size,
-			y: self.center.y - quarter_size,
-			z: self.center.z - quarter_size,
-		};
-
-		let rfb = Point {
-			x: self.center.x + quarter_size,
-			y: self.center.y - quarter_size,
-			z: self.center.z - quarter_size,
-		};
-
-		let lbb = Point {
-			x: self.center.x - quarter_size,
-			y: self.center.y + quarter_size,
-			z: self.center.z - quarter_size,
-		};
-
-		let rbb = Point {
-			x: self.center.x + quarter_size,
-			y: self.center.y + quarter_size,
-			z: self.center.z - quarter_size,
-		};
-
-		let lft = Point {
-			x: self.center.x - quarter_size,
-			y: self.center.y - quarter_size,
-			z: self.center.z + quarter_size,
-		};
-
-		let rft = Point {
-			x: self.center.x + quarter_size,
-			y: self.center.y - quarter_size,
-			z: self.center.z + quarter_size,
-		};
-
-		let lbt = Point {
-			x: self.center.x - quarter_size,
-			y: self.center.y + quarter_size,
-			z: self.center.z + quarter_size,
-		};
-
-		let rbt = Point {
-			x: self.center.x + quarter_size,
-			y: self.center.y + quarter_size,
-			z: self.center.z + quarter_size,
-		};
+		let lfb = vec3(self.center.x - quarter_size, self.center.y - quarter_size, self.center.z - quarter_size);
+		let rfb = vec3(self.center.x + quarter_size, self.center.y - quarter_size, self.center.z - quarter_size);
+		let lbb = vec3(self.center.x - quarter_size, self.center.y + quarter_size, self.center.z - quarter_size);
+		let rbb = vec3(self.center.x + quarter_size, self.center.y + quarter_size, self.center.z - quarter_size);
+		let lft = vec3(self.center.x - quarter_size, self.center.y - quarter_size, self.center.z + quarter_size);
+		let rft = vec3(self.center.x + quarter_size, self.center.y - quarter_size, self.center.z + quarter_size);
+		let lbt = vec3(self.center.x - quarter_size, self.center.y + quarter_size, self.center.z + quarter_size);
+		let rbt = vec3(self.center.x + quarter_size, self.center.y + quarter_size, self.center.z + quarter_size);
 
 		if (is_filled(half_size, lfb) == !invert) && !self.children[0].is_some() {
 			self.children[0] = Some(Box::new(SculptNode::new(SculptNodeKind::None, fill, half_size, lfb)));
@@ -195,7 +157,7 @@ impl SculptNode {
 	}
 
 	/// Handles the sparse voxel octree unsubdividing modifications, recursively.
-	fn unsubdivide(&mut self, fill: u32, is_filled: &Box<dyn Fn(f32, Point) -> bool>, is_contained: &Box<dyn Fn(f32, Point) -> bool>, min_leaf_size: f32) {
+	fn unsubdivide(&mut self, fill: u32, is_filled: &Box<dyn Fn(f32, Vec3) -> bool>, is_contained: &Box<dyn Fn(f32, Vec3) -> bool>, min_leaf_size: f32) {
 		if !is_filled(self.size, self.center) {
 			return;
 		}
@@ -387,23 +349,23 @@ mod tests {
     		..Default::default()
     	};
 
-    	sculpt.subdivide(RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 }), RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 }));
+    	sculpt.subdivide(RoundBrushTip::filler(0.5, vec3(0.5, 0.5, 0.5)), RoundBrushTip::container(0.5, vec3(0.5, 0.5, 0.5)));
 
     	assert_eq!(sculpt.root.children.iter().filter(|child| child.is_some()).count(), 8);
     }
 
     #[test]
     fn simple_sculpt_node_generates_correct_buffer() {
-		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, vec3(0.5, 0.5, 0.5));
 		sculpt_node.children = [
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.25, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.75, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.25, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.25, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.75, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.75)))),
 		];
 
 		let expected = vec![
@@ -425,16 +387,16 @@ mod tests {
 
     #[test]
     fn sculpt_nodes_with_different_materials_generate_correct_buffer() {
-		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, vec3(0.5, 0.5, 0.5));
 		sculpt_node.children = [
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 2, 0.5, Point { x: 0.25, y: 0.25, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 3, 0.5, Point { x: 0.75, y: 0.25, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 4, 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 5, 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 6, 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 7, 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 8, 0.5, Point { x: 0.25, y: 0.75, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 9, 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 2, 0.5, vec3(0.25, 0.25, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 3, 0.5, vec3(0.75, 0.25, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 4, 0.5, vec3(0.25, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 5, 0.5, vec3(0.75, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 6, 0.5, vec3(0.25, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 7, 0.5, vec3(0.75, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 8, 0.5, vec3(0.25, 0.75, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 9, 0.5, vec3(0.75, 0.75, 0.75)))),
 		];
 
 		let expected = vec![
@@ -456,16 +418,16 @@ mod tests {
 
     #[test]
     fn simple_sculpt_node_missing_children_generates_correct_buffer() {
-		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, vec3(0.5, 0.5, 0.5));
 		sculpt_node.children = [
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.25, 0.25)))),
 			None,
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.75, 0.25)))),
 			None,
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.25, 0.75)))),
 			None,
 			None,
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.75)))),
 		];
 
 		let expected = vec![
@@ -483,29 +445,29 @@ mod tests {
 
     #[test]
     fn simple_nested_sculpt_node_generates_correct_buffer() {
-		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, vec3(0.5, 0.5, 0.5));
 
-		let mut sculpt_node_child_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.25 });
+		let mut sculpt_node_child_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, vec3(0.25, 0.25, 0.25));
 		sculpt_node_child_lfb.children = [
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.375, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.375, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.375, 0.375)))),
 		];
 
 		sculpt_node.children = [
 			Some(Box::new(sculpt_node_child_lfb)),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.25, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.75, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.25, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.75, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.75)))),
 		];
 
 		let expected = vec![
@@ -536,41 +498,41 @@ mod tests {
     }
 
     fn multiple_nested_sculpt_node_generates_correct_buffer() {
-		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, vec3(0.5, 0.5, 0.5));
 
-		let mut sculpt_node_child_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.25 });
+		let mut sculpt_node_child_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, vec3(0.25, 0.25, 0.25));
 		sculpt_node_child_lfb.children = [
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.375, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.375, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.375, 0.375)))),
 		];
 
-		let mut sculpt_node_child_rfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, Point { x: 0.75, y: 0.25, z: 0.25 });
+		let mut sculpt_node_child_rfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, vec3(0.75, 0.25, 0.25));
 		sculpt_node_child_rfb.children = [
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.625, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.625, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.625, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.625, y: 0.375, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.625, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.625, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.625, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.625, 0.375, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.375, 0.375)))),
 		];
 
 		sculpt_node.children = [
 			Some(Box::new(sculpt_node_child_lfb)),
 			Some(Box::new(sculpt_node_child_rfb)),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.75, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.75, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.75)))),
 		];
 
 		let expected = vec![
@@ -611,53 +573,53 @@ mod tests {
     }
 
     fn deeply_nested_sculpt_node_generates_correct_buffer() {
-		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, vec3(0.5, 0.5, 0.5));
 
-		let mut sculpt_node_child_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.25 });
+		let mut sculpt_node_child_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, vec3(0.25, 0.25, 0.25));
 		sculpt_node_child_lfb.children = [
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.375, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.375, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.375, 0.375)))),
 		];
 
-		let mut sculpt_node_nested_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.25, Point { x: 0.625, y: 0.125, z: 0.125 });
+		let mut sculpt_node_nested_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.25, vec3(0.625, 0.125, 0.125));
 		sculpt_node_nested_lfb.children = [
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.5625, y: 0.0625, z: 0.0625 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.6875, y: 0.0625, z: 0.0625 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.5625, y: 0.1875, z: 0.0625 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.6875, y: 0.1875, z: 0.0625 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.5625, y: 0.0625, z: 0.1875 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.6875, y: 0.0625, z: 0.1875 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.5625, y: 0.1875, z: 0.1875 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.6875, y: 0.1875, z: 0.1875 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.5625, 0.0625, 0.0625)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.6875, 0.0625, 0.0625)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.5625, 0.1875, 0.0625)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.6875, 0.1875, 0.0625)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.5625, 0.0625, 0.1875)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.6875, 0.0625, 0.1875)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.5625, 0.1875, 0.1875)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.6875, 0.1875, 0.1875)))),
 		];
 
-		let mut sculpt_node_child_rfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, Point { x: 0.75, y: 0.25, z: 0.25 });
+		let mut sculpt_node_child_rfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, vec3(0.75, 0.25, 0.25));
 		sculpt_node_child_rfb.children = [
 			Some(Box::new(sculpt_node_nested_lfb)),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.625, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.625, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.625, y: 0.375, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.625, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.625, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.625, 0.375, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.375, 0.375)))),
 		];
 
 		sculpt_node.children = [
 			Some(Box::new(sculpt_node_child_lfb)),
 			Some(Box::new(sculpt_node_child_rfb)),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.75, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.75, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.75)))),
 		];
 
 		let expected = vec![
@@ -708,65 +670,65 @@ mod tests {
     }
 
     fn complex_sculpt_node_generates_correct_buffer() {
-		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, Point { x: 0.5, y: 0.5, z: 0.5 });
+		let mut sculpt_node = SculptNode::new(SculptNodeKind::Interior, 1, 1.0, vec3(0.5, 0.5, 0.5));
 
-		let mut sculpt_node_child_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.25 });
+		let mut sculpt_node_child_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, vec3(0.25, 0.25, 0.25));
 		sculpt_node_child_lfb.children = [
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.125, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.375, y: 0.375, z: 0.125 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.125, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.375, 0.375, 0.125)))),
 			None,
 			None,
 			None,
 			None,
 		];
 
-		let mut sculpt_node_deeply_nested_lbb = SculptNode::new(SculptNodeKind::Interior, 1, 0.125, Point { x: 0.5625, y: 0.1875, z: 0.0625 });
+		let mut sculpt_node_deeply_nested_lbb = SculptNode::new(SculptNodeKind::Interior, 1, 0.125, vec3(0.5625, 0.1875, 0.0625));
 		sculpt_node_deeply_nested_lbb.children = [
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, Point { x: 0.53125, y: 0.15625, z: 0.03125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, Point { x: 0.59375, y: 0.15625, z: 0.03125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, Point { x: 0.53125, y: 0.21875, z: 0.03125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, Point { x: 0.59375, y: 0.21875, z: 0.03125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, Point { x: 0.53125, y: 0.15625, z: 0.09375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, Point { x: 0.59375, y: 0.15625, z: 0.09375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, Point { x: 0.53125, y: 0.21875, z: 0.09375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, Point { x: 0.59375, y: 0.21875, z: 0.09375 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, vec3(0.53125, 0.15625, 0.03125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, vec3(0.59375, 0.15625, 0.03125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, vec3(0.53125, 0.21875, 0.03125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, vec3(0.59375, 0.21875, 0.03125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, vec3(0.53125, 0.15625, 0.09375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, vec3(0.59375, 0.15625, 0.09375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, vec3(0.53125, 0.21875, 0.09375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.0625, vec3(0.59375, 0.21875, 0.09375)))),
 		];
 
-		let mut sculpt_node_nested_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.25, Point { x: 0.625, y: 0.125, z: 0.125 });
+		let mut sculpt_node_nested_lfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.25, vec3(0.625, 0.125, 0.125));
 		sculpt_node_nested_lfb.children = [
 			None,
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.6875, y: 0.0625, z: 0.0625 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.6875, 0.0625, 0.0625)))),
 			Some(Box::new(sculpt_node_deeply_nested_lbb)),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.6875, y: 0.1875, z: 0.0625 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.5625, y: 0.0625, z: 0.1875 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.6875, y: 0.0625, z: 0.1875 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.6875, 0.1875, 0.0625)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.5625, 0.0625, 0.1875)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.6875, 0.0625, 0.1875)))),
 			None,
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, Point { x: 0.6875, y: 0.1875, z: 0.1875 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.125, vec3(0.6875, 0.1875, 0.1875)))),
 		];
 
-		let mut sculpt_node_child_rfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, Point { x: 0.75, y: 0.25, z: 0.25 });
+		let mut sculpt_node_child_rfb = SculptNode::new(SculptNodeKind::Interior, 1, 0.5, vec3(0.75, 0.25, 0.25));
 		sculpt_node_child_rfb.children = [
 			Some(Box::new(sculpt_node_nested_lfb)),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.125, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.625, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.375, z: 0.125 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.625, y: 0.125, z: 0.375 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.125, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.125, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.625, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.375, 0.125)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.625, 0.125, 0.375)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.125, 0.375)))),
 			None,
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, Point { x: 0.875, y: 0.375, z: 0.375 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.25, vec3(0.875, 0.375, 0.375)))),
 		];
 
 		sculpt_node.children = [
 			Some(Box::new(sculpt_node_child_lfb)),
 			Some(Box::new(sculpt_node_child_rfb)),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.25 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.25, y: 0.25, z: 0.75 }))),
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.25, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.25)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.25, 0.25, 0.75)))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.25, 0.75)))),
 			None,
-			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, Point { x: 0.75, y: 0.75, z: 0.75 }))),
+			Some(Box::new(SculptNode::new(SculptNodeKind::Leaf, 1, 0.5, vec3(0.75, 0.75, 0.75)))),
 		];
 
 		let expected = vec![

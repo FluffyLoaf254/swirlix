@@ -1,5 +1,6 @@
-use crate::util::Point;
 use crate::sculpt::Sculpt;
+
+use glam::{Vec3, vec3};
 
 /// A brush for sculpting.
 pub struct Brush {
@@ -47,19 +48,11 @@ impl RoundBrushTip {
 	}
 
 	/// Function for implicitly defining a spherical shape for the brush.
-	pub fn filler(brush_size: f32, brush_position: Point) -> Box<dyn Fn (f32, Point) -> bool> {
-		Box::new(move |size: f32, center: Point| {
+	pub fn filler(brush_size: f32, brush_position: Vec3) -> Box<dyn Fn (f32, Vec3) -> bool> {
+		Box::new(move |size: f32, center: Vec3| {
 			let half_size = size / 2.0;
-			let low_point = Point {
-				x: center.x - half_size,
-				y: center.y - half_size,
-				z: center.z - half_size,
-			};
-			let high_point = Point {
-				x: center.x + half_size,
-				y: center.y + half_size,
-				z: center.z + half_size,
-			};
+			let low_point = vec3(center.x - half_size, center.y - half_size, center.z - half_size);
+			let high_point = vec3(center.x + half_size, center.y + half_size, center.z + half_size);
 			let mut dist_squared = brush_size.powi(2);
 			if brush_position.x < low_point.x {
 				dist_squared -= (brush_position.x - low_point.x).powi(2);
@@ -82,19 +75,11 @@ impl RoundBrushTip {
 	}
 
 	/// Function for determining interior leaf nodes for a sphere.
-	pub fn container(brush_size: f32, brush_position: Point) -> Box<dyn Fn (f32, Point) -> bool> {
-		Box::new(move |size: f32, center: Point| {
+	pub fn container(brush_size: f32, brush_position: Vec3) -> Box<dyn Fn (f32, Vec3) -> bool> {
+		Box::new(move |size: f32, center: Vec3| {
 			let half_size = size / 2.0;
-			let low_point = Point {
-				x: center.x - half_size,
-				y: center.y - half_size,
-				z: center.z - half_size,
-			};
-			let high_point = Point {
-				x: center.x + half_size,
-				y: center.y + half_size,
-				z: center.z + half_size,
-			};
+			let low_point = vec3(center.x - half_size, center.y - half_size, center.z - half_size);
+			let high_point = vec3(center.x + half_size, center.y + half_size, center.z + half_size);
 			let mut dist_squared = brush_size.powi(2);
 			if brush_position.x > center.x {
 				dist_squared -= (brush_position.x - low_point.x).powi(2);
@@ -120,11 +105,7 @@ impl RoundBrushTip {
 impl Draw for RoundBrushTip {
 	/// Sculpt by adding geometry.
 	fn add(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32) {
-		let brush_position = Point {
-			x,
-			y,
-			z: 0.5,
-		};
+		let brush_position = vec3(x, y, 0.5);
 		let brush_size = size;
 		sculpt.subdivide(
 			RoundBrushTip::filler(brush_size, brush_position),
@@ -134,11 +115,7 @@ impl Draw for RoundBrushTip {
 
 	/// Sculpt by removing geometry.
 	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32) {
-		let brush_position = Point {
-			x,
-			y,
-			z: 0.5,
-		};
+		let brush_position = vec3(x, y, 0.5);
 		let brush_size = size;
 		sculpt.unsubdivide(
 			RoundBrushTip::filler(brush_size, brush_position),
@@ -157,21 +134,12 @@ impl SquareBrushTip {
 	}
 
 	/// Function for implicitly defining a cubical shape for the brush.
-	pub fn filler(brush_size: f32, brush_position: Point) -> Box<dyn Fn (f32, Point) -> bool> {
-		Box::new(move |size: f32, center: Point| {
+	pub fn filler(brush_size: f32, brush_position: Vec3) -> Box<dyn Fn (f32, Vec3) -> bool> {
+		Box::new(move |size: f32, center: Vec3| {
 			let half_size = size / 2.0;
-			let low_point = Point {
-				x: center.x - half_size,
-				y: center.y - half_size,
-				z: center.z - half_size,
-			};
-			let high_point = Point {
-				x: center.x + half_size,
-				y: center.y + half_size,
-				z: center.z + half_size,
-			};
+			let low_point = vec3(center.x - half_size, center.y - half_size, center.z - half_size);
+			let high_point = vec3(center.x + half_size, center.y + half_size, center.z + half_size);
 			
-
 			let x_in_range = (brush_position.x - brush_size < low_point.x && brush_position.x + brush_size > low_point.x)
 				|| (brush_position.x - brush_size < high_point.x && brush_position.x + brush_size > high_point.x)
 				|| (brush_position.x - brush_size > low_point.x && brush_position.x + brush_size < high_point.x);
@@ -187,21 +155,12 @@ impl SquareBrushTip {
 	}
 
 	/// Function for determining interior leaf nodes for a cube.
-	pub fn container(brush_size: f32, brush_position: Point) -> Box<dyn Fn (f32, Point) -> bool> {
-		Box::new(move |size: f32, center: Point| {
+	pub fn container(brush_size: f32, brush_position: Vec3) -> Box<dyn Fn (f32, Vec3) -> bool> {
+		Box::new(move |size: f32, center: Vec3| {
 			let half_size = size / 2.0;
-			let low_point = Point {
-				x: center.x - half_size,
-				y: center.y - half_size,
-				z: center.z - half_size,
-			};
-			let high_point = Point {
-				x: center.x + half_size,
-				y: center.y + half_size,
-				z: center.z + half_size,
-			};
+			let low_point = vec3(center.x - half_size, center.y - half_size, center.z - half_size);
+			let high_point = vec3(center.x + half_size, center.y + half_size, center.z + half_size);
 			
-
 			let x_in_range = (brush_position.x - brush_size < low_point.x && brush_position.x + brush_size > low_point.x)
 				&& (brush_position.x - brush_size < high_point.x && brush_position.x + brush_size > high_point.x);
 			let y_in_range = (brush_position.y - brush_size < low_point.y && brush_position.y + brush_size > low_point.y)
@@ -217,11 +176,7 @@ impl SquareBrushTip {
 impl Draw for SquareBrushTip {
 	/// Sculpt by adding geometry.
 	fn add(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32) {
-		let brush_position = Point {
-			x,
-			y,
-			z: 0.5,
-		};
+		let brush_position = vec3(x, y, 0.5);
 		let brush_size = size;
 		sculpt.subdivide(
 			SquareBrushTip::filler(brush_size, brush_position),
@@ -231,11 +186,7 @@ impl Draw for SquareBrushTip {
 
 	/// Sculpt by removing geometry.
 	fn remove(&self, sculpt: &mut Sculpt, x: f32, y: f32, size: f32) {
-		let brush_position = Point {
-			x,
-			y,
-			z: 0.5,
-		};
+		let brush_position = vec3(x, y, 0.5);
 		let brush_size = size;
 		sculpt.unsubdivide(
 			SquareBrushTip::filler(brush_size, brush_position),
@@ -250,73 +201,73 @@ mod tests {
 
     #[test]
     fn round_brush_filler_contains_small_center_point() {
-    	let filler = RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(filler(0.25, Point { x: 0.5, y: 0.5, z: 0.5 }))
+    	let filler = RoundBrushTip::filler(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(filler(0.25, vec3(0.5, 0.5, 0.5)))
     }
 
     #[test]
     fn round_brush_filler_contains_large_center_point() {
-    	let filler = RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(filler(1.0, Point { x: 0.5, y: 0.5, z: 0.5 }))
+    	let filler = RoundBrushTip::filler(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(filler(1.0, vec3(0.5, 0.5, 0.5)))
     }
 
     #[test]
     fn round_brush_filler_contains_small_offcenter_point() {
-    	let filler = RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(filler(0.05, Point { x: 0.75, y: 0.75, z: 0.75 }))
+    	let filler = RoundBrushTip::filler(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(filler(0.05, vec3(0.75, 0.75, 0.75)))
     }
 
     #[test]
     fn round_brush_filler_contains_large_offcenter_point() {
-    	let filler = RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(filler(1.0, Point { x: 0.75, y: 0.75, z: 0.75 }))
+    	let filler = RoundBrushTip::filler(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(filler(1.0, vec3(0.75, 0.75, 0.75)))
     }
 
     #[test]
     fn round_brush_filler_contains_large_far_off_point() {
-    	let filler = RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(filler(4.0, Point { x: 2.0, y: 2.0, z: 2.0 }))
+    	let filler = RoundBrushTip::filler(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(filler(4.0, vec3(2.0, 2.0, 2.0)))
     }
 
     #[test]
     fn round_brush_filler_does_not_contains_far_off_point() {
-    	let filler = RoundBrushTip::filler(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(!filler(0.25, Point { x: 2.0, y: 2.0, z: 2.0 }))
+    	let filler = RoundBrushTip::filler(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(!filler(0.25, vec3(2.0, 2.0, 2.0)))
     }
 
     #[test]
     fn round_brush_container_contains_small_center_point() {
-    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(container(0.25, Point { x: 0.5, y: 0.5, z: 0.5 }))
+    	let container = RoundBrushTip::container(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(container(0.25, vec3(0.5, 0.5, 0.5)))
     }
 
     #[test]
     fn round_brush_container_does_not_contain_large_center_point() {
-    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(!container(1.0, Point { x: 0.5, y: 0.5, z: 0.5 }))
+    	let container = RoundBrushTip::container(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(!container(1.0, vec3(0.5, 0.5, 0.5)))
     }
 
     #[test]
     fn round_brush_container_contains_small_offcenter_point() {
-    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(container(0.05, Point { x: 0.75, y: 0.75, z: 0.75 }))
+    	let container = RoundBrushTip::container(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(container(0.05, vec3(0.75, 0.75, 0.75)))
     }
 
     #[test]
     fn round_brush_container_does_not_contain_large_offcenter_point() {
-    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(!container(1.0, Point { x: 0.75, y: 0.75, z: 0.75 }))
+    	let container = RoundBrushTip::container(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(!container(1.0, vec3(0.75, 0.75, 0.75)))
     }
 
     #[test]
     fn round_brush_container_does_not_contain_large_far_off_point() {
-    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(!container(4.0, Point { x: 2.0, y: 2.0, z: 2.0 }))
+    	let container = RoundBrushTip::container(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(!container(4.0, vec3(2.0, 2.0, 2.0)))
     }
 
     #[test]
     fn round_brush_container_does_not_contains_far_off_point() {
-    	let container = RoundBrushTip::container(0.5, Point { x: 0.5, y: 0.5, z: 0.5 });
-    	assert!(!container(0.25, Point { x: 2.0, y: 2.0, z: 2.0 }))
+    	let container = RoundBrushTip::container(0.5, vec3(0.5, 0.5, 0.5));
+    	assert!(!container(0.25, vec3(2.0, 2.0, 2.0)))
     }
 }
